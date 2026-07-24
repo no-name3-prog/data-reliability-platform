@@ -7,6 +7,25 @@
 
 Do **not** install Rust, PostgreSQL, Redis, MinIO, or Prometheus on the host.
 
+
+## Branching policy (required)
+
+**Direct commits and pushes to `main` are blocked.**
+
+1. Create a **feature branch** from `main`
+2. Push the branch and open a **pull request**
+3. Wait for **GitHub Actions** (containerized CI) to pass
+4. **Only the repository owner** merges the PR
+
+Details: [docs/branching-and-merging.md](docs/branching-and-merging.md)
+
+```bash
+git checkout -b feature/my-change
+# … make lint && make test …
+git push -u origin HEAD
+gh pr create --base main
+```
+
 ## First-time setup
 
 ```bash
