@@ -17,3 +17,6 @@
 /logs/
 # Host cargo artifacts must never be the workflow — only containers write these
 .cargo-cache/
+
+# pre-commit (optional host tool)
+.pre-commit-cache/

@@ -1,6 +1,6 @@
 # Data Reliability Platform — container-first stack.
-# Prerequisites on the host: Git + Docker CLI + Compose only.
-# Do NOT install Rust, Postgres, Redis, or MinIO on the host.
+# Host prerequisites: Git + Docker CLI + Compose only.
+# Do NOT install Rust, Postgres, Redis, MinIO, or Prometheus on the host.
 
 name: drp
 
@@ -11,7 +11,6 @@ x-dev-common: &dev-common
   working_dir: /workspace
   volumes:
     - .:/workspace
-    # Persist cargo registry/git/target across runs (still inside Docker volumes)
     - drp-cargo-registry:/usr/local/cargo/registry
     - drp-cargo-git:/usr/local/cargo/git
     - drp-target:/workspace/target
@@ -20,6 +19,7 @@ x-dev-common: &dev-common
     RUST_BACKTRACE: "1"
     DRP_ENV: ${DRP_ENV:-development}
     DRP_LOG_LEVEL: ${DRP_LOG_LEVEL:-info}
+    DRP_LOG_FORMAT: ${DRP_LOG_FORMAT:-pretty}
     DRP_API_HOST: 0.0.0.0
     DRP_API_PORT: "8080"
     DRP_STORAGE_BACKEND: ${DRP_STORAGE_BACKEND:-memory}
@@ -38,7 +38,6 @@ x-dev-common: &dev-common
       condition: service_started
 
 services:
-  # ----- infrastructure (never install these on the host) -----
   postgres:
     image: postgres:16-alpine
     environment:
@@ -79,6 +78,12 @@ services:
       - "9001:9001"
     volumes:
       - drp-minio:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   minio-init:
     image: minio/mc:latest
@@ -96,7 +101,20 @@ services:
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
       DRP_S3_BUCKET: ${DRP_S3_BUCKET:-drp}
 
-  # ----- app runtime (production-like image) -----
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    volumes:
+      - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - drp-prometheus:/prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --web.enable-lifecycle
+    ports:
+      - "9090:9090"
+    depends_on:
+      - api
+
   api:
     build:
       context: .
@@ -106,6 +124,7 @@ services:
     environment:
       DRP_ENV: ${DRP_ENV:-development}
       DRP_LOG_LEVEL: ${DRP_LOG_LEVEL:-info}
+      DRP_LOG_FORMAT: ${DRP_LOG_FORMAT:-json}
       DRP_API_HOST: 0.0.0.0
       DRP_API_PORT: "8080"
       DRP_STORAGE_BACKEND: ${DRP_STORAGE_BACKEND:-memory}
@@ -123,20 +142,18 @@ services:
       minio-init:
         condition: service_completed_successfully
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/health"]
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/readyz"]
       interval: 10s
       timeout: 3s
       retries: 10
-      start_period: 15s
+      start_period: 20s
 
-  # ----- toolchain (all cargo / lint / test / docs) -----
   dev:
     <<: *dev-common
     stdin_open: true
     tty: true
     command: ["bash"]
 
-  # One-shot jobs (invoked via `make` / `docker-compose run --rm`)
   build:
     <<: *dev-common
     command: ["cargo", "build", "--workspace"]
@@ -148,8 +165,8 @@ services:
   lint:
     <<: *dev-common
     command:
-      - bash
-      - -lc
+      - sh
+      - -c
       - cargo fmt --all -- --check && cargo clippy --workspace --all-targets --all-features -- -D warnings
 
   fmt:
@@ -158,7 +175,15 @@ services:
 
   doc:
     <<: *dev-common
-    command: ["cargo", "doc", "--workspace", "--no-deps", "--all-features", "--document-private-items"]
+    command:
+      [
+        "cargo",
+        "doc",
+        "--workspace",
+        "--no-deps",
+        "--all-features",
+        "--document-private-items",
+      ]
 
   docs-serve:
     build:
@@ -172,6 +197,7 @@ volumes:
   drp-postgres:
   drp-redis:
   drp-minio:
+  drp-prometheus:
   drp-cargo-registry:
   drp-cargo-git:
   drp-target:

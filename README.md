@@ -1,125 +1,95 @@
 # Data Reliability Platform
 
-**Container-first** Rust monorepo for data reliability: catalog metadata, profiling, validation, lineage, scheduling, and notifications.
+**Container-first** Rust monorepo for data reliability: catalog metadata, profiling, validation, lineage, scheduling, notifications, structured logging, and Prometheus metrics.
 
 ## Host prerequisites (only these)
 
 | Tool | Purpose |
 |------|---------|
-| **Git** | Clone / version control |
-| **Docker CLI** + **Compose** | Build, lint, test, run, docs |
+| **Git** | Version control + hooks |
+| **Docker CLI** + **Compose** | Build, lint, test, run, docs, infra |
 
 ### Explicitly not required on the host
 
 - Rust toolchain (`rustc`, `cargo`, `rustup`)
-- PostgreSQL client or server
-- Redis
-- MinIO / AWS CLI
+- PostgreSQL, Redis, MinIO, Prometheus
 - Running tests with host `cargo test`
-
-Everything runs **inside Docker containers**.
-
-```text
-┌─────────────────────────────────────────────────────────┐
-│  Host machine                                           │
-│    git  ·  docker  ·  docker-compose                    │
-│         │                                               │
-│         ▼                                               │
-│  ┌──────────── compose network ──────────────────────┐  │
-│  │  dev (Rust toolchain)  api  postgres  redis  minio│  │
-│  └───────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────┘
-```
 
 ## Quick start
 
 ```bash
-git clone <repo-url> data-reliability-platform
+git clone https://github.com/no-name3-prog/data-reliability-platform.git
 cd data-reliability-platform
 
-# Verify host has Docker only (and warn if cargo/psql leak onto PATH)
 make doctor
-
-# Build the toolchain image + start Postgres, Redis, MinIO
-make bootstrap
-
-# Build, lint, and test — all inside containers
+make bootstrap    # toolchain image + postgres/redis/minio + git hooks
 make build
-make lint
 make test
-
-# Run the API (production-like image) with infra
-make up
-curl -s http://127.0.0.1:8080/health
+make lint
+make up           # api + prometheus + infra
 ```
 
-## Everyday commands
+| Endpoint | URL |
+|----------|-----|
+| Readiness | http://127.0.0.1:8080/readyz |
+| Liveness | http://127.0.0.1:8080/livez |
+| Metrics | http://127.0.0.1:8080/metrics |
+| Prometheus | http://127.0.0.1:9090 |
+| MinIO console | http://127.0.0.1:9001 |
 
-| Command | What runs where |
-|---------|-----------------|
-| `make doctor` | Host checks only (Docker presence) |
-| `make bootstrap` | Compose: build `dev` image, start infra |
-| `make build` | Container: `cargo build --workspace` |
-| `make test` | Container: `cargo test --workspace` |
-| `make lint` | Container: `fmt --check` + `clippy -D warnings` |
-| `make fmt` | Container: `cargo fmt` |
-| `make doc` | Container: `cargo doc` |
-| `make docs-serve` | Container: nginx serving rustdoc on `:3001` |
-| `make shell` | Interactive bash **inside** the Rust image |
-| `make up` | Compose: infra + API |
-| `make down` | Stop containers |
-| `make clean` | Remove containers + named volumes |
+## Common commands
 
-Arbitrary cargo (still containerized):
+| Command | Runs in | Description |
+|---------|---------|-------------|
+| `make bootstrap` | Docker | Image + infra + hooks |
+| `make up` / `make down` | Compose | Full stack |
+| `make build` | Container | `cargo build --workspace` |
+| `make test` | Container | `cargo test --workspace` |
+| `make fmt` / `make lint` | Container | rustfmt + clippy |
+| `make check` / `make ci` | Container | Full quality gate |
+| `make doc` / `make docs-serve` | Container | rustdoc |
+| `make shell` | Container | Interactive toolchain shell |
+| `make hooks` | Host git config | Install container-backed hooks |
+| `./scripts/cargo.sh …` | Container | Arbitrary cargo |
+| `./scripts/drp.sh <target>` | Make/Docker | Unified helper |
 
-```bash
-./scripts/cargo.sh test -p drp-core
-./scripts/cargo.sh clippy -p drp-api
-```
+## Production-grade standards
+
+| Concern | Implementation |
+|---------|----------------|
+| Formatting | `rustfmt.toml` + `make fmt` / `fmt-check` |
+| Linting | `clippy.toml` + `make clippy` (`-D warnings`) |
+| Editor | `.editorconfig` |
+| Git hooks | `.githooks/` + optional `.pre-commit-config.yaml` (Docker only) |
+| CI | `.github/workflows/ci.yml` (Docker-only runner) |
+| Logging | JSON/pretty structured tracing + `x-request-id` |
+| Metrics | Prometheus `/metrics` + compose `prometheus` service |
+| Health | `/livez`, `/readyz`, `/startupz` |
+| Docs | `docs/*`, `CONTRIBUTING.md`, rustdoc |
 
 ## Workspace crates
 
 | Crate | Role |
 |-------|------|
 | `drp-common` | Errors, IDs, config, shared types |
-| `drp-core` | Domain model, plugins, event bus |
-| `drp-storage` | `Store` trait + memory backend |
+| `drp-core` | Domain, plugins, events, logging |
+| `drp-storage` | Persistence trait + memory backend |
 | `drp-connectors` | Connector plugins (`mock`) |
 | `drp-metadata` | Asset catalog |
 | `drp-profiling` | Profiling engine |
-| `drp-validation` | DQ checks (`not_null`, `unique`, `regex`) |
+| `drp-validation` | DQ checks |
 | `drp-lineage` | Lineage graph |
-| `drp-scheduler` | Jobs / handlers |
-| `drp-notifications` | Alert channels (`log`) |
-| `drp-api` | Axum HTTP API + `drp` binary |
+| `drp-scheduler` | Jobs |
+| `drp-notifications` | Alerts |
+| `drp-api` | HTTP API + binary |
 
-See [docs/architecture.md](docs/architecture.md) and [docs/container-workflow.md](docs/container-workflow.md).
+## Documentation
 
-## Infrastructure (compose only)
-
-| Service | Image | Port (host) |
-|---------|-------|-------------|
-| `postgres` | `postgres:16-alpine` | 5432 |
-| `redis` | `redis:7-alpine` | 6379 |
-| `minio` | `minio/minio` | 9000 / 9001 |
-| `api` | multi-stage `docker/Dockerfile` | 8080 |
-| `dev` | `docker/Dockerfile.dev` | (toolchain) |
-
-Inside the compose network, apps use DNS names `postgres`, `redis`, `minio` — never `localhost` for cross-service traffic.
-
-## Configuration
-
-- Defaults: `config/default.toml`
-- Env sample: `.env.example` → copy to `.env` for compose substitution
-- Infra URLs default to compose service names
-
-## Extending (plugins)
-
-Implement `ConnectorPlugin` / `ValidatorPlugin` / … and register at composition root in `drp-api`. No host toolchain needed: edit sources on the host, run `make build` / `make test` in containers.
-
-## CI
-
-GitHub Actions uses **Docker only** (see `.github/workflows/ci.yml`). No `dtolnay/rust-toolchain` on the runner.
+- [Container workflow](docs/container-workflow.md)
+- [Development](docs/development.md)
+- [Architecture](docs/architecture.md)
+- [Operations](docs/operations.md)
+- [Contributing](CONTRIBUTING.md)
 
 ## License
 

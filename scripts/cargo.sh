@@ -13,4 +13,9 @@ else
   exit 1
 fi
 
-exec $DC run --rm dev cargo "$@"
+if [[ $# -eq 0 ]]; then
+  echo "Usage: $0 <cargo-args...>" >&2
+  exit 2
+fi
+
+exec $DC run --rm --no-deps dev cargo "$@"

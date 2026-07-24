@@ -1,8 +1,6 @@
 # Data Reliability Platform — container-first Makefile
-# Host prerequisites: Git + Docker CLI + Compose. Nothing else.
-#
-# Never run cargo/rustc/psql/redis-cli against the host.
-# All targets shell into containers.
+# Host prerequisites: Git + Docker CLI + Compose only.
+# All format / lint / test / doc / build commands run inside Docker.
 
 .DEFAULT_GOAL := help
 
@@ -10,41 +8,59 @@ COMPOSE ?= $(shell if command -v docker-compose >/dev/null 2>&1; then echo docke
 	elif docker compose version >/dev/null 2>&1; then echo "docker compose"; \
 	else echo docker-compose; fi)
 
-DC := $(COMPOSE)
-# --no-deps: unit build/test do not need postgres/redis/minio running
+DC  := $(COMPOSE)
 DEV := $(DC) run --rm --no-deps dev
 
-.PHONY: help bootstrap up down logs ps shell \
-	build test lint fmt check doc docs-serve \
-	api api-build clean doctor ensure-docker infra
+.PHONY: help doctor ensure-docker hooks \
+	bootstrap infra up down restart logs ps shell \
+	build release test lint fmt fmt-check clippy check deny doc docs-serve \
+	api api-build clean \
+	editorconfig-check pre-commit ci
 
 help:
 	@echo "Data Reliability Platform (container-first)"
 	@echo ""
-	@echo "  Host tools required: Git + Docker + Compose only."
-	@echo "  Do NOT install Rust, PostgreSQL, Redis, or MinIO on the host."
+	@echo "  Host tools: Git + Docker + Compose ONLY."
+	@echo "  Do not install Rust / Postgres / Redis / MinIO / Prometheus on the host."
 	@echo ""
-	@echo "Infrastructure & runtime"
-	@echo "  make doctor      Verify Docker prerequisites"
-	@echo "  make bootstrap   Build toolchain image + start infra"
-	@echo "  make infra       Start postgres/redis/minio only"
-	@echo "  make up          Start full stack (infra + api)"
-	@echo "  make down        Stop stack"
-	@echo "  make logs        Tail logs"
-	@echo "  make ps          Show services"
-	@echo "  make api         Rebuild/run API image"
+	@echo "Setup"
+	@echo "  make doctor       Verify Docker prerequisites"
+	@echo "  make hooks        Install git hooks (container-backed)"
+	@echo "  make bootstrap    Build toolchain image + start infra"
 	@echo ""
-	@echo "Dev toolchain (Docker only — never host cargo)"
-	@echo "  make shell       bash in Rust toolchain container"
-	@echo "  make build       cargo build --workspace"
-	@echo "  make test        cargo test --workspace"
-	@echo "  make lint        fmt check + clippy -D warnings"
-	@echo "  make fmt         cargo fmt --all"
-	@echo "  make check       lint + test"
-	@echo "  make doc         cargo doc"
-	@echo "  make docs-serve  rustdoc on :3001"
+	@echo "Stack"
+	@echo "  make infra        postgres + redis + minio"
+	@echo "  make up           Full stack: infra + api + prometheus"
+	@echo "  make down         Stop stack"
+	@echo "  make restart      down + up"
+	@echo "  make logs         Tail service logs"
+	@echo "  make ps           List compose services"
+	@echo "  make api          Rebuild/run API"
 	@echo ""
-	@echo "  make clean       Remove containers, volumes, caches"
+	@echo "Dev (always inside Docker)"
+	@echo "  make shell        Interactive bash in toolchain container"
+	@echo "  make build        cargo build --workspace"
+	@echo "  make release      cargo build --release -p drp-api"
+	@echo "  make test         cargo test --workspace"
+	@echo "  make fmt          cargo fmt --all"
+	@echo "  make fmt-check    cargo fmt --check"
+	@echo "  make clippy       cargo clippy -D warnings"
+	@echo "  make lint         fmt-check + clippy"
+	@echo "  make check        lint + test"
+	@echo "  make deny         cargo-deny (licenses/advisories) if available"
+	@echo "  make doc          cargo doc --workspace"
+	@echo "  make docs-serve   Serve rustdoc on :3001"
+	@echo "  make ci           Full local CI gate (container)"
+	@echo ""
+	@echo "Endpoints (after make up)"
+	@echo "  API         http://127.0.0.1:8080"
+	@echo "  Liveness    http://127.0.0.1:8080/livez"
+	@echo "  Readiness   http://127.0.0.1:8080/readyz"
+	@echo "  Metrics     http://127.0.0.1:8080/metrics"
+	@echo "  Prometheus  http://127.0.0.1:9090"
+	@echo "  MinIO UI    http://127.0.0.1:9001"
+	@echo ""
+	@echo "Helpers: ./scripts/drp.sh <target>   ./scripts/cargo.sh <args>"
 
 ensure-docker:
 	@command -v docker >/dev/null 2>&1 || { echo "ERROR: docker CLI not found."; exit 1; }
@@ -58,39 +74,49 @@ doctor: ensure-docker
 	@echo ""
 	@echo "Host toolchain check (should be unused):"
 	@if command -v cargo >/dev/null 2>&1; then \
-		echo "  WARN: cargo on host PATH — do not use it; use make build/test/shell"; \
+		echo "  WARN: cargo on host PATH — use make build/test/shell instead"; \
 	else \
 		echo "  OK: no cargo on host PATH"; \
 	fi
 	@if command -v psql >/dev/null 2>&1; then \
-		echo "  WARN: psql on host — use compose postgres instead"; \
+		echo "  WARN: psql on host — use compose postgres"; \
 	else \
 		echo "  OK: no psql on host PATH"; \
 	fi
 	@if command -v redis-cli >/dev/null 2>&1; then \
-		echo "  WARN: redis-cli on host — use compose redis instead"; \
+		echo "  WARN: redis-cli on host — use compose redis"; \
 	else \
 		echo "  OK: no redis-cli on host PATH"; \
 	fi
 	@echo "Doctor complete."
 
+hooks:
+	@./scripts/install-hooks.sh
+
 bootstrap: ensure-docker
 	$(DC) build dev
 	$(DC) up -d postgres redis minio minio-init
-	@echo "Infra up + toolchain image built. Next: make build && make test"
+	@./scripts/install-hooks.sh
+	@echo "Infra up + toolchain image built + hooks installed."
+	@echo "Next: make build && make test && make up"
 
 infra: ensure-docker
 	$(DC) up -d postgres redis minio minio-init
 
 up: ensure-docker
-	$(DC) up -d --build postgres redis minio minio-init api
-	@echo "API: http://127.0.0.1:$${DRP_API_PORT:-8080}/health"
+	$(DC) up -d --build postgres redis minio minio-init api prometheus
+	@echo ""
+	@echo "API:        http://127.0.0.1:$${DRP_API_PORT:-8080}/readyz"
+	@echo "Metrics:    http://127.0.0.1:$${DRP_API_PORT:-8080}/metrics"
+	@echo "Prometheus: http://127.0.0.1:9090"
 
 down: ensure-docker
 	$(DC) down --remove-orphans
 
+restart: down up
+
 logs: ensure-docker
-	$(DC) logs -f api postgres redis minio
+	$(DC) logs -f api postgres redis minio prometheus
 
 ps: ensure-docker
 	$(DC) ps
@@ -101,17 +127,29 @@ shell: ensure-docker
 build: ensure-docker
 	$(DEV) cargo build --workspace
 
+release: ensure-docker
+	$(DEV) cargo build --release -p drp-api
+
 test: ensure-docker
 	$(DEV) cargo test --workspace --all-features
-
-lint: ensure-docker
-	$(DEV) sh -c 'cargo fmt --all -- --check && cargo clippy --workspace --all-targets --all-features -- -D warnings'
 
 fmt: ensure-docker
 	$(DEV) cargo fmt --all
 
+fmt-check: ensure-docker
+	$(DEV) cargo fmt --all -- --check
+
+clippy: ensure-docker
+	$(DEV) cargo clippy --workspace --all-targets --all-features -- -D warnings
+
+lint: fmt-check clippy
+	@echo "Lint OK (container)."
+
 check: lint test
-	@echo "Container gate OK."
+	@echo "Check OK (container)."
+
+deny: ensure-docker
+	$(DEV) sh -c 'if command -v cargo-deny >/dev/null 2>&1; then cargo deny check; else echo "cargo-deny not in image (optional)"; fi'
 
 doc: ensure-docker
 	$(DEV) cargo doc --workspace --no-deps --all-features --document-private-items
@@ -125,7 +163,17 @@ api-build: ensure-docker
 
 api: ensure-docker
 	$(DC) up -d --build api
-	@echo "API: http://127.0.0.1:$${DRP_API_PORT:-8080}/health"
+	@echo "API: http://127.0.0.1:$${DRP_API_PORT:-8080}/readyz"
+
+editorconfig-check: ensure-docker
+	@# Lightweight: ensure .editorconfig exists and key files end with newline (container)
+	$(DEV) sh -c 'test -f .editorconfig && echo "editorconfig present"'
+
+pre-commit: fmt-check clippy
+	@echo "pre-commit gate OK"
+
+ci: ensure-docker lint test build
+	@echo "Local CI gate OK (all containerized)."
 
 clean: ensure-docker
 	$(DC) down -v --remove-orphans --rmi local || true

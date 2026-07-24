@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# Container-first pre-commit hook. Never invokes host cargo/rustc.
+set -euo pipefail
+cd "$(git rev-parse --show-toplevel)"
+
+if ! command -v docker >/dev/null 2>&1; then
+  echo "pre-commit: docker is required (container-first project)" >&2
+  exit 1
+fi
+
+echo "==> pre-commit: format check (container)"
+make fmt-check
+
+echo "==> pre-commit: clippy (container)"
+make clippy
+
+echo "pre-commit: OK"

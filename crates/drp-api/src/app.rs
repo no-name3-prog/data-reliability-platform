@@ -2,11 +2,15 @@
 
 use std::time::Duration;
 
+use axum::http::{HeaderName, Request};
+use axum::middleware;
 use axum::Router;
+use tower::ServiceBuilder;
 use tower_http::cors::{Any, CorsLayer};
+use tower_http::request_id::{MakeRequestUuid, PropagateRequestIdLayer, SetRequestIdLayer};
 use tower_http::timeout::TimeoutLayer;
-use tower_http::trace::TraceLayer;
-use tracing::info;
+use tower_http::trace::{DefaultOnFailure, DefaultOnResponse, TraceLayer};
+use tracing::{info, Level};
 
 use drp_common::AppConfig;
 use drp_connectors::register_builtin_connectors;
@@ -19,12 +23,16 @@ use drp_scheduler::SchedulerService;
 use drp_storage::open_store;
 use drp_validation::{register_builtin_validators, ValidationService};
 
+use crate::metrics::{self, track_http_metrics};
 use crate::routes;
 use crate::state::AppState;
+
+const REQUEST_ID_HEADER: HeaderName = HeaderName::from_static("x-request-id");
 
 /// Build platform services and register built-in plugins.
 pub fn build_app(config: AppConfig) -> drp_common::Result<AppState> {
     init_tracing(&config)?;
+    metrics::init_metrics()?;
 
     let platform = Platform::new(config);
     register_builtin_connectors(&platform.plugins);
@@ -83,13 +91,34 @@ pub fn build_app(config: AppConfig) -> drp_common::Result<AppState> {
     })
 }
 
-/// Build the Axum router with middleware.
+/// Build the Axum router with production middleware stack.
 pub fn build_router(state: AppState) -> Router {
     let timeout = Duration::from_secs(state.platform.config.api.request_timeout_secs);
 
-    Router::new()
-        .merge(routes::router())
-        .layer(TraceLayer::new_for_http())
+    let trace_layer = TraceLayer::new_for_http()
+        .make_span_with(|req: &Request<_>| {
+            let request_id = req
+                .headers()
+                .get(REQUEST_ID_HEADER)
+                .and_then(|v| v.to_str().ok())
+                .unwrap_or("-");
+            tracing::info_span!(
+                "http",
+                method = %req.method(),
+                uri = %req.uri().path(),
+                request_id = %request_id,
+            )
+        })
+        .on_response(DefaultOnResponse::new().level(Level::INFO))
+        .on_failure(DefaultOnFailure::new().level(Level::ERROR));
+
+    let middleware = ServiceBuilder::new()
+        .layer(SetRequestIdLayer::new(
+            REQUEST_ID_HEADER.clone(),
+            MakeRequestUuid,
+        ))
+        .layer(PropagateRequestIdLayer::new(REQUEST_ID_HEADER.clone()))
+        .layer(trace_layer)
         .layer(TimeoutLayer::with_status_code(
             axum::http::StatusCode::REQUEST_TIMEOUT,
             timeout,
@@ -99,6 +128,11 @@ pub fn build_router(state: AppState) -> Router {
                 .allow_origin(Any)
                 .allow_methods(Any)
                 .allow_headers(Any),
-        )
+        );
+
+    Router::new()
+        .merge(routes::router())
+        .layer(middleware::from_fn(track_http_metrics))
+        .layer(middleware)
         .with_state(state)
 }

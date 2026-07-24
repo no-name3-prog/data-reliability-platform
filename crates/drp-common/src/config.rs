@@ -250,6 +250,9 @@ fn apply_env_overrides(merged: &mut AppConfig) {
     if let Ok(level) = std::env::var("DRP_LOG_LEVEL") {
         merged.logging.level = level;
     }
+    if let Ok(format) = std::env::var("DRP_LOG_FORMAT") {
+        merged.logging.format = format;
+    }
     if let Ok(backend) = std::env::var("DRP_STORAGE_BACKEND") {
         merged.storage.backend = backend;
     }

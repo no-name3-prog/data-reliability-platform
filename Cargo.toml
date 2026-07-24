@@ -21,8 +21,8 @@ edition = "2021"
 rust-version = "1.85"
 authors = ["Data Reliability Platform Contributors"]
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/example/data-reliability-platform"
-homepage = "https://github.com/example/data-reliability-platform"
+repository = "https://github.com/no-name3-prog/data-reliability-platform"
+homepage = "https://github.com/no-name3-prog/data-reliability-platform"
 description = "Container-first Data Reliability Platform"
 readme = "README.md"
 keywords = ["data-quality", "data-reliability", "lineage", "profiling", "observability"]
@@ -66,6 +66,7 @@ tokio-util = { version = "0.7", features = ["rt"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt", "json"] }
 metrics = "0.24"
+metrics-exporter-prometheus = "0.16"
 
 config = "0.15"
 dotenvy = "0.15"
