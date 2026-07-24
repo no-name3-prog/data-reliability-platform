@@ -1,0 +1,177 @@
+# Data Reliability Platform — container-first stack.
+# Prerequisites on the host: Git + Docker CLI + Compose only.
+# Do NOT install Rust, Postgres, Redis, or MinIO on the host.
+
+name: drp
+
+x-dev-common: &dev-common
+  build:
+    context: .
+    dockerfile: docker/Dockerfile.dev
+  working_dir: /workspace
+  volumes:
+    - .:/workspace
+    # Persist cargo registry/git/target across runs (still inside Docker volumes)
+    - drp-cargo-registry:/usr/local/cargo/registry
+    - drp-cargo-git:/usr/local/cargo/git
+    - drp-target:/workspace/target
+  environment:
+    CARGO_TERM_COLOR: always
+    RUST_BACKTRACE: "1"
+    DRP_ENV: ${DRP_ENV:-development}
+    DRP_LOG_LEVEL: ${DRP_LOG_LEVEL:-info}
+    DRP_API_HOST: 0.0.0.0
+    DRP_API_PORT: "8080"
+    DRP_STORAGE_BACKEND: ${DRP_STORAGE_BACKEND:-memory}
+    DRP_DATABASE_URL: ${DRP_DATABASE_URL:-postgres://drp:drp@postgres:5432/drp}
+    DRP_REDIS_URL: ${DRP_REDIS_URL:-redis://redis:6379}
+    DRP_S3_ENDPOINT: ${DRP_S3_ENDPOINT:-http://minio:9000}
+    DRP_S3_ACCESS_KEY: ${DRP_S3_ACCESS_KEY:-minioadmin}
+    DRP_S3_SECRET_KEY: ${DRP_S3_SECRET_KEY:-minioadmin}
+    DRP_S3_BUCKET: ${DRP_S3_BUCKET:-drp}
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+    minio:
+      condition: service_started
+
+services:
+  # ----- infrastructure (never install these on the host) -----
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-drp}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-drp}
+      POSTGRES_DB: ${POSTGRES_DB:-drp}
+    ports:
+      - "5432:5432"
+    volumes:
+      - drp-postgres:/var/lib/postgresql/data
+      - ./docker/init-postgres.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-drp} -d ${POSTGRES_DB:-drp}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - drp-redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - drp-minio:/data
+
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+      sleep 3;
+      mc alias set local http://minio:9000 $${MINIO_ROOT_USER:-minioadmin} $${MINIO_ROOT_PASSWORD:-minioadmin};
+      mc mb --ignore-existing local/$${DRP_S3_BUCKET:-drp};
+      exit 0;
+      "
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      DRP_S3_BUCKET: ${DRP_S3_BUCKET:-drp}
+
+  # ----- app runtime (production-like image) -----
+  api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    ports:
+      - "${DRP_API_PORT:-8080}:8080"
+    environment:
+      DRP_ENV: ${DRP_ENV:-development}
+      DRP_LOG_LEVEL: ${DRP_LOG_LEVEL:-info}
+      DRP_API_HOST: 0.0.0.0
+      DRP_API_PORT: "8080"
+      DRP_STORAGE_BACKEND: ${DRP_STORAGE_BACKEND:-memory}
+      DRP_DATABASE_URL: ${DRP_DATABASE_URL:-postgres://drp:drp@postgres:5432/drp}
+      DRP_REDIS_URL: ${DRP_REDIS_URL:-redis://redis:6379}
+      DRP_S3_ENDPOINT: ${DRP_S3_ENDPOINT:-http://minio:9000}
+      DRP_S3_ACCESS_KEY: ${DRP_S3_ACCESS_KEY:-minioadmin}
+      DRP_S3_SECRET_KEY: ${DRP_S3_SECRET_KEY:-minioadmin}
+      DRP_S3_BUCKET: ${DRP_S3_BUCKET:-drp}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 15s
+
+  # ----- toolchain (all cargo / lint / test / docs) -----
+  dev:
+    <<: *dev-common
+    stdin_open: true
+    tty: true
+    command: ["bash"]
+
+  # One-shot jobs (invoked via `make` / `docker-compose run --rm`)
+  build:
+    <<: *dev-common
+    command: ["cargo", "build", "--workspace"]
+
+  test:
+    <<: *dev-common
+    command: ["cargo", "test", "--workspace", "--all-features"]
+
+  lint:
+    <<: *dev-common
+    command:
+      - bash
+      - -lc
+      - cargo fmt --all -- --check && cargo clippy --workspace --all-targets --all-features -- -D warnings
+
+  fmt:
+    <<: *dev-common
+    command: ["cargo", "fmt", "--all"]
+
+  doc:
+    <<: *dev-common
+    command: ["cargo", "doc", "--workspace", "--no-deps", "--all-features", "--document-private-items"]
+
+  docs-serve:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.docs
+    profiles: ["docs"]
+    ports:
+      - "3001:80"
+
+volumes:
+  drp-postgres:
+  drp-redis:
+  drp-minio:
+  drp-cargo-registry:
+  drp-cargo-git:
+  drp-target:

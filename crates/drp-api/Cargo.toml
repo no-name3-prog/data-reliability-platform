@@ -1,0 +1,41 @@
+[package]
+name = "drp-api"
+description = "HTTP API and process entrypoint (runs in containers)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+readme.workspace = true
+
+[[bin]]
+name = "drp"
+path = "src/main.rs"
+
+[dependencies]
+drp-common.workspace = true
+drp-core.workspace = true
+drp-storage.workspace = true
+drp-connectors.workspace = true
+drp-metadata.workspace = true
+drp-profiling.workspace = true
+drp-validation.workspace = true
+drp-lineage.workspace = true
+drp-scheduler.workspace = true
+drp-notifications.workspace = true
+
+anyhow.workspace = true
+async-trait.workspace = true
+axum.workspace = true
+chrono.workspace = true
+clap.workspace = true
+dotenvy.workspace = true
+indexmap.workspace = true
+serde = { workspace = true }
+serde_json.workspace = true
+tokio = { workspace = true }
+tower.workspace = true
+tower-http.workspace = true
+tracing.workspace = true
+http.workspace = true

@@ -1,0 +1,48 @@
+[platform]
+name = "data-reliability-platform"
+environment = "development"
+
+[logging]
+level = "info"
+format = "pretty"
+
+[api]
+host = "0.0.0.0"
+port = 8080
+request_timeout_secs = 30
+cors_allow_origins = ["*"]
+
+[storage]
+# memory is default; postgres URL is available via compose for future backends
+backend = "memory"
+database_url = "postgres://drp:drp@postgres:5432/drp"
+max_connections = 10
+
+[scheduler]
+enabled = true
+tick_interval_secs = 5
+max_concurrent_jobs = 8
+
+[notifications]
+enabled = true
+default_channels = ["log"]
+
+[profiling]
+sample_size = 10000
+null_threshold = 0.05
+
+[validation]
+fail_fast = false
+default_severity = "error"
+
+[lineage]
+max_depth = 20
+
+[infra]
+# These hostnames resolve only inside the Docker Compose network.
+database_url = "postgres://drp:drp@postgres:5432/drp"
+redis_url = "redis://redis:6379"
+s3_endpoint = "http://minio:9000"
+s3_access_key = "minioadmin"
+s3_secret_key = "minioadmin"
+s3_bucket = "drp"

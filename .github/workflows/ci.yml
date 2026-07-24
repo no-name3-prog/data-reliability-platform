@@ -1,0 +1,52 @@
+name: CI
+
+# Container-first: the GitHub runner only needs Docker.
+# No rustup / cargo on the runner host.
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  container-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Doctor (Docker only)
+        run: make doctor
+
+      - name: Build toolchain image
+        run: docker-compose build dev
+
+      - name: Start infrastructure
+        run: docker-compose up -d postgres redis minio minio-init
+
+      - name: Format + Clippy (in container)
+        run: make lint
+
+      - name: Test (in container)
+        run: make test
+
+      - name: Build workspace (in container)
+        run: make build
+
+      - name: Build production API image
+        run: docker-compose build api
+
+      - name: Smoke API health
+        run: |
+          docker-compose up -d api
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8080/health; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker-compose logs api
+          exit 1
+
+      - name: Teardown
+        if: always()
+        run: docker-compose down -v --remove-orphans

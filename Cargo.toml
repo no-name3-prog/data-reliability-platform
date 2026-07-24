@@ -1,0 +1,100 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/drp-common",
+    "crates/drp-core",
+    "crates/drp-storage",
+    "crates/drp-connectors",
+    "crates/drp-metadata",
+    "crates/drp-profiling",
+    "crates/drp-validation",
+    "crates/drp-lineage",
+    "crates/drp-scheduler",
+    "crates/drp-notifications",
+    "crates/drp-api",
+]
+default-members = ["crates/drp-api"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+authors = ["Data Reliability Platform Contributors"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/example/data-reliability-platform"
+homepage = "https://github.com/example/data-reliability-platform"
+description = "Container-first Data Reliability Platform"
+readme = "README.md"
+keywords = ["data-quality", "data-reliability", "lineage", "profiling", "observability"]
+categories = ["database", "asynchronous", "web-programming"]
+
+[workspace.dependencies]
+drp-common = { path = "crates/drp-common", version = "0.1.0" }
+drp-core = { path = "crates/drp-core", version = "0.1.0" }
+drp-storage = { path = "crates/drp-storage", version = "0.1.0" }
+drp-connectors = { path = "crates/drp-connectors", version = "0.1.0" }
+drp-metadata = { path = "crates/drp-metadata", version = "0.1.0" }
+drp-profiling = { path = "crates/drp-profiling", version = "0.1.0" }
+drp-validation = { path = "crates/drp-validation", version = "0.1.0" }
+drp-lineage = { path = "crates/drp-lineage", version = "0.1.0" }
+drp-scheduler = { path = "crates/drp-scheduler", version = "0.1.0" }
+drp-notifications = { path = "crates/drp-notifications", version = "0.1.0" }
+drp-api = { path = "crates/drp-api", version = "0.1.0" }
+
+anyhow = "1"
+thiserror = "2"
+async-trait = "0.1"
+bytes = "1"
+once_cell = "1"
+parking_lot = "0.12"
+dashmap = "6"
+indexmap = { version = "2", features = ["serde"] }
+
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_yaml = "0.9"
+toml = "0.8"
+
+uuid = { version = "1", features = ["serde", "v4", "v7"] }
+chrono = { version = "0.4", features = ["serde"] }
+ulid = { version = "1", features = ["serde"] }
+
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time", "signal", "fs", "io-util"] }
+futures = "0.3"
+tokio-util = { version = "0.7", features = ["rt"] }
+
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt", "json"] }
+metrics = "0.24"
+
+config = "0.15"
+dotenvy = "0.15"
+
+axum = { version = "0.8", features = ["macros"] }
+tower = { version = "0.5", features = ["util"] }
+tower-http = { version = "0.6", features = ["trace", "cors", "request-id", "timeout", "compression-gzip"] }
+http = "1"
+hyper = "1"
+
+regex = "1"
+schemars = { version = "0.8", features = ["chrono", "uuid1"] }
+
+rusqlite = { version = "0.32", features = ["bundled"] }
+sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "sqlite", "postgres", "chrono", "uuid", "macros"] }
+
+petgraph = "0.7"
+
+clap = { version = "4", features = ["derive", "env", "color", "wrap_help"] }
+
+pretty_assertions = "1"
+tempfile = "3"
+tokio-test = "0.4"
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"
+
+[profile.dev]
+debug = true

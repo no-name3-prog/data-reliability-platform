@@ -1,0 +1,23 @@
+[package]
+name = "drp-notifications"
+description = "Notification and alerting channels"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+readme.workspace = true
+
+[dependencies]
+drp-common.workspace = true
+drp-core.workspace = true
+async-trait.workspace = true
+indexmap.workspace = true
+serde = { workspace = true }
+serde_json.workspace = true
+tracing.workspace = true
+tokio = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }

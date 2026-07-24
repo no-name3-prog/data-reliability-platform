@@ -1,0 +1,25 @@
+[package]
+name = "drp-storage"
+description = "Persistence abstractions and backends"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+readme.workspace = true
+
+[dependencies]
+drp-common.workspace = true
+drp-core.workspace = true
+async-trait.workspace = true
+dashmap.workspace = true
+parking_lot.workspace = true
+serde = { workspace = true }
+serde_json.workspace = true
+tracing.workspace = true
+tokio = { workspace = true }
+
+[dev-dependencies]
+pretty_assertions.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
