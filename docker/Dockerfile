@@ -11,9 +11,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-# Cache dependency layer
+# Workspace manifests + all members (crates *and* plugins/*)
 COPY Cargo.toml rust-toolchain.toml rustfmt.toml clippy.toml ./
+COPY Cargo.lock ./
 COPY crates ./crates
+COPY plugins ./plugins
 
 RUN cargo build --release -p drp-api \
     && strip target/release/drp
@@ -39,7 +41,8 @@ ENV DRP_API_HOST=0.0.0.0 \
 EXPOSE 8080
 USER drp
 
-HEALTHCHECK --interval=10s --timeout=3s --start-period=5s --retries=3 \
-  CMD curl -fsS http://127.0.0.1:8080/health || exit 1
+# Prefer readiness over bare liveness for orchestrators
+HEALTHCHECK --interval=10s --timeout=3s --start-period=20s --retries=5 \
+  CMD curl -fsS http://127.0.0.1:8080/readyz || exit 1
 
 CMD ["drp"]
