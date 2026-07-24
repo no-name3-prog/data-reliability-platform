@@ -1,0 +1,38 @@
+[package]
+name = "drp-tests"
+description = "Integration and regression tests for the Data Reliability Platform"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+# Integration tests are in tests/; package needs at least one target.
+drp-test-support = { path = "../drp-test-support" }
+
+[dev-dependencies]
+drp-common.workspace = true
+drp-core.workspace = true
+drp-storage.workspace = true
+drp-connectors.workspace = true
+drp-metadata.workspace = true
+drp-profiling.workspace = true
+drp-validation.workspace = true
+drp-lineage.workspace = true
+drp-scheduler.workspace = true
+drp-notifications.workspace = true
+drp-api.workspace = true
+drp-test-support = { path = "../drp-test-support" }
+
+async-trait.workspace = true
+indexmap.workspace = true
+serde = { workspace = true }
+serde_json.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+tower = { workspace = true, features = ["util"] }
+axum.workspace = true
+http.workspace = true
+pretty_assertions.workspace = true

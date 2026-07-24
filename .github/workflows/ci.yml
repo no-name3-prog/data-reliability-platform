@@ -1,69 +1,107 @@
 name: CI
 
-# Container-first: the GitHub runner only needs Docker.
-# No rustup / cargo on the runner host.
+# Container-first CI. Runner host has Docker only — no rustup/cargo.
+# Pipeline mirrors local `make verify` + image smoke.
 
 on:
   push:
     branches: [main, master]
   pull_request:
+    branches: [main, master]
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  CARGO_TERM_COLOR: always
+  COMPOSE: docker-compose
+
 jobs:
+  # ---- same steps as local `make verify` ----
   quality:
-    name: Format · Lint · Test · Build
+    name: Lint · Unit · Integration · Regression · Build · Docs
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Doctor (Docker only)
         run: make doctor
 
-      - name: Build toolchain image
+      - name: Build toolchain image (Rust + clippy + rustfmt + nextest)
         run: docker-compose build dev
 
-      - name: Start infrastructure
+      - name: Start infrastructure (parity with local compose)
         run: docker-compose up -d postgres redis minio minio-init
 
-      - name: rustfmt (container)
+      - name: Wait for Postgres healthy
+        run: |
+          for i in $(seq 1 30); do
+            if docker-compose exec -T postgres pg_isready -U drp -d drp; then
+              exit 0
+            fi
+            sleep 2
+          done
+          exit 1
+
+      - name: Format check (container)
         run: make fmt-check
 
-      - name: clippy (container)
+      - name: Clippy (container)
         run: make clippy
 
-      - name: test (container)
+      - name: Unit tests — nextest profile unit (container)
+        run: make test-unit
+
+      - name: Integration tests — nextest profile integration (container)
+        run: make test-integration
+
+      - name: Regression tests — nextest profile regression (container)
+        run: make test-regression
+
+      - name: Full nextest CI profile (container)
         run: make test
 
-      - name: build (container)
+      - name: Build workspace (container)
         run: make build
 
-      - name: docs (container)
+      - name: Documentation (container)
         run: make doc
 
+      - name: Tooling config presence
+        run: make editorconfig-check
+
+      - name: Teardown
+        if: always()
+        run: docker-compose down -v --remove-orphans || true
+
+  # ---- production image + live probes (compose network) ----
   image-smoke:
-    name: API image smoke
+    name: API image smoke (compose)
     runs-on: ubuntu-latest
     needs: quality
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build production API image
+      - name: Build API image
         run: docker-compose build api
 
-      - name: Start stack
+      - name: Start stack (api + infra)
         run: docker-compose up -d postgres redis minio minio-init api
 
-      - name: Wait for readiness
+      - name: Probe livez / readyz / metrics
         run: |
+          set -e
           for i in $(seq 1 40); do
             if curl -fsS http://127.0.0.1:8080/readyz; then
               echo
               curl -fsS http://127.0.0.1:8080/livez
               echo
-              curl -fsS http://127.0.0.1:8080/metrics | head -20
+              curl -fsS http://127.0.0.1:8080/metrics | head -30
+              echo
+              curl -fsS http://127.0.0.1:8080/v1/plugins | head -c 200
+              echo
               exit 0
             fi
             sleep 3
@@ -73,14 +111,4 @@ jobs:
 
       - name: Teardown
         if: always()
-        run: docker-compose down -v --remove-orphans
-
-  quality-teardown:
-    name: Teardown quality job
-    runs-on: ubuntu-latest
-    needs: quality
-    if: always()
-    steps:
-      - uses: actions/checkout@v4
-      - name: Teardown
         run: docker-compose down -v --remove-orphans || true

@@ -1,0 +1,5 @@
+{
+  "row_count": 3,
+  "columns": ["order_id", "customer_email", "amount", "status"],
+  "customer_email_null_count": 1
+}

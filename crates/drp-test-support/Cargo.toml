@@ -1,0 +1,33 @@
+[package]
+name = "drp-test-support"
+description = "Shared test helpers, harnesses, and fixtures (dev-only)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+drp-common.workspace = true
+drp-core.workspace = true
+drp-storage.workspace = true
+drp-connectors.workspace = true
+drp-metadata.workspace = true
+drp-profiling.workspace = true
+drp-validation.workspace = true
+drp-lineage.workspace = true
+drp-scheduler.workspace = true
+drp-notifications.workspace = true
+drp-api.workspace = true
+
+async-trait.workspace = true
+indexmap.workspace = true
+serde = { workspace = true }
+serde_json.workspace = true
+tokio = { workspace = true }
+tower = { workspace = true, features = ["util"] }
+http.workspace = true
+axum.workspace = true
+http-body-util = "0.1"

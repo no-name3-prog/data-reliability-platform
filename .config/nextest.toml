@@ -1,0 +1,42 @@
+# cargo-nextest configuration for DRP.
+# All runs happen inside the dev container (make test / CI).
+#
+# Profiles:
+#   default      — full suite
+#   unit         — library unit tests (exclude drp-tests package)
+#   integration  — cross-crate / HTTP integration tests
+#   regression   — golden-path / fixture regression suite
+#   ci           — CI-optimized (no fail-fast, rich output)
+
+[store]
+
+[profile.default]
+default-filter = "all()"
+fail-fast = false
+slow-timeout = { period = "60s", terminate-after = 3 }
+status-level = "pass"
+final-status-level = "flaky"
+
+[profile.unit]
+default-filter = "not package(drp-tests)"
+fail-fast = false
+slow-timeout = { period = "30s", terminate-after = 2 }
+
+[profile.integration]
+default-filter = 'package(drp-tests) & not test(/regression_/)'
+fail-fast = false
+slow-timeout = { period = "60s", terminate-after = 3 }
+
+[profile.regression]
+default-filter = "package(drp-tests) & test(/regression_/)"
+fail-fast = true
+slow-timeout = { period = "90s", terminate-after = 2 }
+
+[profile.ci]
+default-filter = "all()"
+fail-fast = false
+slow-timeout = { period = "90s", terminate-after = 3 }
+status-level = "fail"
+final-status-level = "flaky"
+failure-output = "immediate-final"
+success-output = "final"

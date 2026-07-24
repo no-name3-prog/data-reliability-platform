@@ -13,52 +13,34 @@ DEV := $(DC) run --rm --no-deps dev
 
 .PHONY: help doctor ensure-docker hooks \
 	bootstrap infra up down restart logs ps shell \
-	build release test lint fmt fmt-check clippy check deny doc docs-serve \
+	build release test test-unit test-integration test-regression test-all test-cargo \
+	lint fmt fmt-check clippy check deny doc docs-serve \
 	api api-build clean \
-	editorconfig-check pre-commit ci
+	editorconfig-check pre-commit ci verify
 
 help:
 	@echo "Data Reliability Platform (container-first)"
 	@echo ""
 	@echo "  Host tools: Git + Docker + Compose ONLY."
-	@echo "  Do not install Rust / Postgres / Redis / MinIO / Prometheus on the host."
 	@echo ""
 	@echo "Setup"
-	@echo "  make doctor       Verify Docker prerequisites"
-	@echo "  make hooks        Install git hooks (container-backed)"
-	@echo "  make bootstrap    Build toolchain image + start infra"
+	@echo "  make doctor / hooks / bootstrap"
 	@echo ""
 	@echo "Stack"
-	@echo "  make infra        postgres + redis + minio"
-	@echo "  make up           Full stack: infra + api + prometheus"
-	@echo "  make down         Stop stack"
-	@echo "  make restart      down + up"
-	@echo "  make logs         Tail service logs"
-	@echo "  make ps           List compose services"
-	@echo "  make api          Rebuild/run API"
+	@echo "  make infra | up | down | logs | ps | api"
 	@echo ""
-	@echo "Dev (always inside Docker)"
-	@echo "  make shell        Interactive bash in toolchain container"
-	@echo "  make build        cargo build --workspace"
-	@echo "  make release      cargo build --release -p drp-api"
-	@echo "  make test         cargo test --workspace"
-	@echo "  make fmt          cargo fmt --all"
-	@echo "  make fmt-check    cargo fmt --check"
-	@echo "  make clippy       cargo clippy -D warnings"
-	@echo "  make lint         fmt-check + clippy"
-	@echo "  make check        lint + test"
-	@echo "  make deny         cargo-deny (licenses/advisories) if available"
-	@echo "  make doc          cargo doc --workspace"
-	@echo "  make docs-serve   Serve rustdoc on :3001"
-	@echo "  make ci           Full local CI gate (container)"
+	@echo "Quality (Docker)"
+	@echo "  make build | release | lint | fmt | clippy | doc"
 	@echo ""
-	@echo "Endpoints (after make up)"
-	@echo "  API         http://127.0.0.1:8080"
-	@echo "  Liveness    http://127.0.0.1:8080/livez"
-	@echo "  Readiness   http://127.0.0.1:8080/readyz"
-	@echo "  Metrics     http://127.0.0.1:8080/metrics"
-	@echo "  Prometheus  http://127.0.0.1:9090"
-	@echo "  MinIO UI    http://127.0.0.1:9001"
+	@echo "Testing (cargo-nextest inside Docker)"
+	@echo "  make test                Full suite (nextest profile ci)"
+	@echo "  make test-unit           Unit tests only"
+	@echo "  make test-integration    Integration tests"
+	@echo "  make test-regression     Regression / golden fixtures"
+	@echo "  make test-all            unit + integration + regression"
+	@echo "  make test-cargo          cargo test (fallback, no nextest)"
+	@echo "  make verify              lint + test-all + build (local CI mirror)"
+	@echo "  make ci                  Same as verify (CI entrypoint)"
 	@echo ""
 	@echo "Helpers: ./scripts/drp.sh <target>   ./scripts/cargo.sh <args>"
 
@@ -72,21 +54,10 @@ doctor: ensure-docker
 	@echo "Compose driver: $(DC)"
 	@docker version --format 'Docker client {{.Client.Version}} / server {{.Server.Version}}'
 	@echo ""
-	@echo "Host toolchain check (should be unused):"
 	@if command -v cargo >/dev/null 2>&1; then \
-		echo "  WARN: cargo on host PATH — use make build/test/shell instead"; \
+		echo "  WARN: cargo on host PATH — do not use it; use make test / make shell"; \
 	else \
 		echo "  OK: no cargo on host PATH"; \
-	fi
-	@if command -v psql >/dev/null 2>&1; then \
-		echo "  WARN: psql on host — use compose postgres"; \
-	else \
-		echo "  OK: no psql on host PATH"; \
-	fi
-	@if command -v redis-cli >/dev/null 2>&1; then \
-		echo "  WARN: redis-cli on host — use compose redis"; \
-	else \
-		echo "  OK: no redis-cli on host PATH"; \
 	fi
 	@echo "Doctor complete."
 
@@ -97,18 +68,14 @@ bootstrap: ensure-docker
 	$(DC) build dev
 	$(DC) up -d postgres redis minio minio-init
 	@./scripts/install-hooks.sh
-	@echo "Infra up + toolchain image built + hooks installed."
-	@echo "Next: make build && make test && make up"
+	@echo "Infra up + toolchain (incl. nextest) + hooks. Next: make verify"
 
 infra: ensure-docker
 	$(DC) up -d postgres redis minio minio-init
 
 up: ensure-docker
 	$(DC) up -d --build postgres redis minio minio-init api prometheus
-	@echo ""
-	@echo "API:        http://127.0.0.1:$${DRP_API_PORT:-8080}/readyz"
-	@echo "Metrics:    http://127.0.0.1:$${DRP_API_PORT:-8080}/metrics"
-	@echo "Prometheus: http://127.0.0.1:9090"
+	@echo "API http://127.0.0.1:$${DRP_API_PORT:-8080}/readyz  Prometheus :9090"
 
 down: ensure-docker
 	$(DC) down --remove-orphans
@@ -125,12 +92,29 @@ shell: ensure-docker
 	$(DC) run --rm --no-deps dev
 
 build: ensure-docker
-	$(DEV) cargo build --workspace
+	$(DEV) cargo build --workspace --all-targets
 
 release: ensure-docker
 	$(DEV) cargo build --release -p drp-api
 
+# --- Testing (always containerized) ---
+
 test: ensure-docker
+	$(DEV) cargo nextest run --workspace --all-features --profile ci
+
+test-unit: ensure-docker
+	$(DEV) cargo nextest run --workspace --all-features --profile unit
+
+test-integration: ensure-docker
+	$(DEV) cargo nextest run --workspace --all-features --profile integration
+
+test-regression: ensure-docker
+	$(DEV) cargo nextest run --workspace --all-features --profile regression
+
+test-all: test-unit test-integration test-regression
+	@echo "All test profiles OK (container)."
+
+test-cargo: ensure-docker
 	$(DEV) cargo test --workspace --all-features
 
 fmt: ensure-docker
@@ -149,7 +133,7 @@ check: lint test
 	@echo "Check OK (container)."
 
 deny: ensure-docker
-	$(DEV) sh -c 'if command -v cargo-deny >/dev/null 2>&1; then cargo deny check; else echo "cargo-deny not in image (optional)"; fi'
+	$(DEV) sh -c 'if command -v cargo-deny >/dev/null 2>&1; then cargo deny check; else echo "cargo-deny optional"; fi'
 
 doc: ensure-docker
 	$(DEV) cargo doc --workspace --no-deps --all-features --document-private-items
@@ -163,17 +147,21 @@ api-build: ensure-docker
 
 api: ensure-docker
 	$(DC) up -d --build api
-	@echo "API: http://127.0.0.1:$${DRP_API_PORT:-8080}/readyz"
 
 editorconfig-check: ensure-docker
-	@# Lightweight: ensure .editorconfig exists and key files end with newline (container)
-	$(DEV) sh -c 'test -f .editorconfig && echo "editorconfig present"'
+	$(DEV) sh -c 'test -f .editorconfig && test -f .config/nextest.toml && echo "tooling config present"'
 
 pre-commit: fmt-check clippy
 	@echo "pre-commit gate OK"
 
-ci: ensure-docker lint test build
-	@echo "Local CI gate OK (all containerized)."
+# Mirror of GitHub Actions quality job
+verify: ensure-docker lint test-all build doc
+	@echo "=========================================="
+	@echo " VERIFY OK — matches CI quality pipeline"
+	@echo " (all steps ran inside Docker containers)"
+	@echo "=========================================="
+
+ci: verify
 
 clean: ensure-docker
 	$(DC) down -v --remove-orphans --rmi local || true

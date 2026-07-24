@@ -1,14 +1,10 @@
 #!/usr/bin/env bash
-# Container-first pre-push: run unit tests inside Docker.
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
-
 if ! command -v docker >/dev/null 2>&1; then
-  echo "pre-push: docker is required (container-first project)" >&2
+  echo "pre-push: docker is required" >&2
   exit 1
 fi
-
-echo "==> pre-push: tests (container)"
+echo "==> pre-push: nextest (container)"
 make test
-
 echo "pre-push: OK"

@@ -19,6 +19,17 @@ make test
 make up          # api + prometheus + infra
 ```
 
+## Testing
+
+```bash
+make test-unit
+make test-integration
+make test-regression
+make verify          # full gate (mirrors CI)
+```
+
+See [docs/testing.md](docs/testing.md).
+
 ## Everyday workflow
 
 | Task | Command |

@@ -146,3 +146,25 @@ impl SourceLocation {
         self
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn source_location_builder() {
+        let loc = SourceLocation::new("pg", "postgres://x").with_property("schema", "public");
+        assert_eq!(loc.connector, "pg");
+        assert_eq!(
+            loc.properties.get("schema").map(String::as_str),
+            Some("public")
+        );
+    }
+
+    #[test]
+    fn severity_ordering() {
+        assert!(Severity::Info < Severity::Warning);
+        assert!(Severity::Warning < Severity::Error);
+        assert!(Severity::Error < Severity::Critical);
+    }
+}

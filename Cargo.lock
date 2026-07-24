@@ -530,6 +530,7 @@ dependencies = [
  "drp-common",
  "drp-core",
  "indexmap",
+ "parking_lot",
  "serde",
  "serde_json",
  "tokio",
@@ -648,6 +649,59 @@ dependencies = [
  "serde_json",
  "tokio",
  "tracing",
+]
+
+[[package]]
+name = "drp-test-support"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "axum",
+ "drp-api",
+ "drp-common",
+ "drp-connectors",
+ "drp-core",
+ "drp-lineage",
+ "drp-metadata",
+ "drp-notifications",
+ "drp-profiling",
+ "drp-scheduler",
+ "drp-storage",
+ "drp-validation",
+ "http",
+ "http-body-util",
+ "indexmap",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tower",
+]
+
+[[package]]
+name = "drp-tests"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "axum",
+ "drp-api",
+ "drp-common",
+ "drp-connectors",
+ "drp-core",
+ "drp-lineage",
+ "drp-metadata",
+ "drp-notifications",
+ "drp-profiling",
+ "drp-scheduler",
+ "drp-storage",
+ "drp-test-support",
+ "drp-validation",
+ "http",
+ "indexmap",
+ "pretty_assertions",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tower",
 ]
 
 [[package]]

@@ -22,24 +22,25 @@ pub fn init_metrics() -> drp_common::Result<()> {
         return Ok(());
     }
 
-    let handle = PrometheusBuilder::new()
-        .install_recorder()
-        .map_err(|e| drp_common::Error::internal(format!("metrics recorder: {e}")))?;
-
-    describe_counter!(
-        "http_requests_total",
-        "Total number of HTTP requests handled"
-    );
-    describe_histogram!(
-        "http_request_duration_seconds",
-        "HTTP request latency in seconds"
-    );
-    describe_counter!("http_responses_total", "HTTP responses by status class");
-    describe_counter!("drp_process_starts_total", "Process start count");
-
-    counter!("drp_process_starts_total").increment(1);
-
-    let _ = HANDLE.set(handle);
+    match PrometheusBuilder::new().install_recorder() {
+        Ok(handle) => {
+            describe_counter!(
+                "http_requests_total",
+                "Total number of HTTP requests handled"
+            );
+            describe_histogram!(
+                "http_request_duration_seconds",
+                "HTTP request latency in seconds"
+            );
+            describe_counter!("http_responses_total", "HTTP responses by status class");
+            describe_counter!("drp_process_starts_total", "Process start count");
+            counter!("drp_process_starts_total").increment(1);
+            let _ = HANDLE.set(handle);
+        }
+        Err(_e) => {
+            // Global recorder already installed (e.g. multiple TestPlatform::new in one process).
+        }
+    }
     Ok(())
 }
 

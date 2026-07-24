@@ -12,6 +12,8 @@ members = [
     "crates/drp-scheduler",
     "crates/drp-notifications",
     "crates/drp-api",
+    "crates/drp-test-support",
+    "crates/drp-tests",
 ]
 default-members = ["crates/drp-api"]
 
@@ -40,6 +42,7 @@ drp-lineage = { path = "crates/drp-lineage", version = "0.1.0" }
 drp-scheduler = { path = "crates/drp-scheduler", version = "0.1.0" }
 drp-notifications = { path = "crates/drp-notifications", version = "0.1.0" }
 drp-api = { path = "crates/drp-api", version = "0.1.0" }
+drp-test-support = { path = "crates/drp-test-support", version = "0.1.0" }
 
 anyhow = "1"
 thiserror = "2"
@@ -75,6 +78,7 @@ axum = { version = "0.8", features = ["macros"] }
 tower = { version = "0.5", features = ["util"] }
 tower-http = { version = "0.6", features = ["trace", "cors", "request-id", "timeout", "compression-gzip"] }
 http = "1"
+http-body-util = "0.1"
 hyper = "1"
 
 regex = "1"

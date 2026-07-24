@@ -1,41 +1,21 @@
-# Pre-commit hooks — every hook runs via Docker (make / compose).
-# Host needs only: Git + Docker + (optional) pre-commit CLI.
-#
-# Install:
-#   make hooks          # preferred: native git hooks, no Python required
-#   # OR if you already use pre-commit:
-#   pre-commit install  # still executes make → containers
-
+# Hooks invoke make → Docker only (no host cargo).
 default_stages: [pre-commit]
-fail_fast: false
-
 repos:
   - repo: local
     hooks:
-      - id: editorconfig-check
-        name: editorconfig (container)
-        entry: make editorconfig-check
-        language: system
-        pass_filenames: false
-
       - id: rustfmt
         name: rustfmt (container)
         entry: make fmt-check
         language: system
         pass_filenames: false
-        types: [rust]
-
       - id: clippy
         name: clippy (container)
         entry: make clippy
         language: system
         pass_filenames: false
-        types: [rust]
-
-      - id: cargo-test
-        name: cargo test (container)
+      - id: nextest
+        name: nextest full (container)
         entry: make test
         language: system
         pass_filenames: false
-        types: [rust]
         stages: [pre-push]

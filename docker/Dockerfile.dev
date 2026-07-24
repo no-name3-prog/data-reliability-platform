@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.6
 # Development / CI toolchain image.
-# Host machines never install Rust — all cargo/clippy/rustfmt/test run here.
+# Host machines never install Rust — all cargo/clippy/rustfmt/nextest/test run here.
 FROM rust:1.85-bookworm
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -11,6 +11,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         ca-certificates \
         git \
         cmake \
+        jq \
     && rm -rf /var/lib/apt/lists/*
 
 # Pre-install the exact channel declared by rust-toolchain.toml so
@@ -21,12 +22,17 @@ RUN rustup show \
     && rustup component add rustfmt clippy rust-src \
     && rustc --version && cargo --version
 
+# cargo-nextest 0.9.100 is the last line supporting rustc 1.85 (newer needs 1.91+)
+RUN cargo install cargo-nextest --locked --version 0.9.100 \
+    && cargo nextest --version
+
 WORKDIR /workspace
 
 ENV CARGO_HOME=/usr/local/cargo \
     RUSTUP_HOME=/usr/local/rustup \
     PATH=/usr/local/cargo/bin:$PATH \
     CARGO_TERM_COLOR=always \
-    DRP_IN_CONTAINER=1
+    DRP_IN_CONTAINER=1 \
+    NEXTEST_STATUS_LEVEL=pass
 
 CMD ["bash"]

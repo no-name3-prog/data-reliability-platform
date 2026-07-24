@@ -44,7 +44,11 @@ make up           # api + prometheus + infra
 | `make bootstrap` | Docker | Image + infra + hooks |
 | `make up` / `make down` | Compose | Full stack |
 | `make build` | Container | `cargo build --workspace` |
-| `make test` | Container | `cargo test --workspace` |
+| `make test` | Container | cargo-nextest full suite |
+| `make test-unit` | Container | Unit tests (nextest) |
+| `make test-integration` | Container | Integration tests |
+| `make test-regression` | Container | Regression / golden |
+| `make verify` | Container | Full CI mirror |
 | `make fmt` / `make lint` | Container | rustfmt + clippy |
 | `make check` / `make ci` | Container | Full quality gate |
 | `make doc` / `make docs-serve` | Container | rustdoc |
