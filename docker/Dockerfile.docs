@@ -4,7 +4,9 @@ FROM rust:1.85-bookworm AS docs-builder
 
 WORKDIR /app
 COPY Cargo.toml rust-toolchain.toml rustfmt.toml clippy.toml ./
+COPY Cargo.lock ./
 COPY crates ./crates
+COPY plugins ./plugins
 
 RUN cargo doc --workspace --no-deps --all-features --document-private-items
 
