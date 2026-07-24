@@ -1,6 +1,7 @@
 name: CI
 
-# Container-first CI. Runner host has Docker only — no rustup/cargo.
+# Container-first CI. Runner has Docker Engine + Compose V2 plugin only.
+# Do NOT use standalone `docker-compose` (missing on ubuntu-latest).
 # Pipeline mirrors local `make verify` + image smoke.
 
 on:
@@ -15,10 +16,8 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
-  COMPOSE: docker-compose
 
 jobs:
-  # ---- same steps as local `make verify` ----
   quality:
     name: Lint · Unit · Integration · Regression · Build · Docs
     runs-on: ubuntu-latest
@@ -26,24 +25,22 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Show Docker / Compose versions
+        run: |
+          docker version
+          docker compose version
+
       - name: Doctor (Docker only)
         run: make doctor
 
       - name: Build toolchain image (Rust + clippy + rustfmt + nextest)
-        run: docker-compose build dev
+        run: make bootstrap-image
 
-      - name: Start infrastructure (parity with local compose)
-        run: docker-compose up -d postgres redis minio minio-init
+      - name: Start infrastructure (postgres, redis, minio)
+        run: make infra
 
-      - name: Wait for Postgres healthy
-        run: |
-          for i in $(seq 1 30); do
-            if docker-compose exec -T postgres pg_isready -U drp -d drp; then
-              exit 0
-            fi
-            sleep 2
-          done
-          exit 1
+      - name: Wait for infrastructure healthy
+        run: make wait-infra
 
       - name: Format check (container)
         run: make fmt-check
@@ -74,9 +71,8 @@ jobs:
 
       - name: Teardown
         if: always()
-        run: docker-compose down -v --remove-orphans || true
+        run: make down-volumes || true
 
-  # ---- production image + live probes (compose network) ----
   image-smoke:
     name: API image smoke (compose)
     runs-on: ubuntu-latest
@@ -84,31 +80,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Show Docker / Compose versions
+        run: |
+          docker version
+          docker compose version
+
       - name: Build API image
-        run: docker-compose build api
+        run: make api-build
 
       - name: Start stack (api + infra)
-        run: docker-compose up -d postgres redis minio minio-init api
+        run: make smoke-up
 
       - name: Probe livez / readyz / metrics
-        run: |
-          set -e
-          for i in $(seq 1 40); do
-            if curl -fsS http://127.0.0.1:8080/readyz; then
-              echo
-              curl -fsS http://127.0.0.1:8080/livez
-              echo
-              curl -fsS http://127.0.0.1:8080/metrics | head -30
-              echo
-              curl -fsS http://127.0.0.1:8080/v1/plugins | head -c 200
-              echo
-              exit 0
-            fi
-            sleep 3
-          done
-          docker-compose logs api
-          exit 1
+        run: make smoke-probe
 
       - name: Teardown
         if: always()
-        run: docker-compose down -v --remove-orphans || true
+        run: make down-volumes || true
