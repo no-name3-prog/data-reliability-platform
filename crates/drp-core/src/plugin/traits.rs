@@ -17,7 +17,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::domain::{
-    AiRequest, AiResponse, AnomalyReport, Asset, CheckDefinition, CheckResult, DatasetProfile,
+    AiRequest, AiResponse, AnomalyReport, Asset, CatalogTree, CheckDefinition, CheckResult,
+    DatasetProfile,
 };
 use drp_common::{Result, SourceLocation};
 
@@ -150,6 +151,39 @@ pub trait ConnectorPlugin: Plugin {
         limit: usize,
         ctx: &PluginContext,
     ) -> Result<Vec<IndexMap<String, Value>>>;
+
+    /// Hierarchical discovery (databases → schemas → tables → columns).
+    ///
+    /// Default implementation wraps [`Self::discover`] into a single synthetic
+    /// `default.public` namespace so simple connectors stay easy to implement.
+    async fn discover_catalog(
+        &self,
+        location: &SourceLocation,
+        ctx: &PluginContext,
+    ) -> Result<CatalogTree> {
+        use crate::domain::{CatalogDatabase, CatalogSchema, CatalogTable};
+
+        let assets = self.discover(location, ctx).await?;
+        let mut tree = CatalogTree::new(self.info().id.clone(), location.clone());
+        let mut db = CatalogDatabase::new("default");
+        let mut schema = CatalogSchema::new("public");
+        for a in assets {
+            let mut t = CatalogTable {
+                name: a.name.clone(),
+                kind: a.kind,
+                fqn: a.fqn.clone(),
+                columns: a.columns.clone(),
+                row_count_estimate: None,
+                properties: a.tags.iter().map(|(k, v)| (k.clone(), v.clone())).collect(),
+            };
+            t.properties
+                .insert("source_uri".into(), a.location.uri.clone());
+            schema.tables.push(t);
+        }
+        db.schemas.push(schema);
+        tree.databases.push(db);
+        Ok(tree)
+    }
 }
 
 /// Profiling plugin.

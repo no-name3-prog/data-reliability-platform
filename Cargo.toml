@@ -23,7 +23,7 @@ default-members = ["crates/drp-api"]
 [workspace.package]
 version = "0.1.0"
 edition = "2021"
-rust-version = "1.85"
+rust-version = "1.88"
 authors = ["Data Reliability Platform Contributors"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/no-name3-prog/data-reliability-platform"
@@ -88,6 +88,7 @@ http-body-util = "0.1"
 hyper = "1"
 
 regex = "1"
+csv = "1"
 schemars = { version = "0.8", features = ["chrono", "uuid1"] }
 
 rusqlite = { version = "0.32", features = ["bundled"] }

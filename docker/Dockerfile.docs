@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.6
 # Builds rustdoc inside a container and serves static HTML.
-FROM rust:1.85-bookworm AS docs-builder
+FROM rust:1.88-bookworm AS docs-builder
 
 WORKDIR /app
 COPY Cargo.toml rust-toolchain.toml rustfmt.toml clippy.toml ./

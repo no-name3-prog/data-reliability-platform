@@ -46,6 +46,7 @@ pub fn router() -> Router<AppState> {
     Router::new()
         .route("/v1/assets", get(list_assets).post(create_asset))
         .route("/v1/assets/discover", post(discover))
+        .route("/v1/assets/catalog", post(discover_catalog))
         .route("/v1/assets/{id}", get(get_asset))
 }
 
@@ -97,4 +98,24 @@ async fn discover(
     }
     let count = items.len();
     Ok(Json(AssetListResponse { items, count }))
+}
+
+async fn discover_catalog(
+    State(state): State<AppState>,
+    Json(body): Json<DiscoverRequest>,
+) -> ApiResult<Json<serde_json::Value>> {
+    let mut location = SourceLocation::new(body.connector.clone(), body.uri);
+    location.properties = body.properties;
+    let (tree, items) = state
+        .metadata
+        .discover_catalog_and_register(&body.connector, location)
+        .await?;
+    for a in &items {
+        state.lineage.register_asset(a.id, a.fqn.clone());
+    }
+    Ok(Json(serde_json::json!({
+        "catalog": tree,
+        "assets": items,
+        "count": items.len(),
+    })))
 }

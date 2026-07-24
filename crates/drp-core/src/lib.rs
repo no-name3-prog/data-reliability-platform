@@ -19,9 +19,10 @@ pub mod platform;
 pub mod plugin;
 
 pub use domain::{
-    AiMessage, AiRequest, AiResponse, AiRole, AnomalyFinding, AnomalyReport, AnomalySeverity,
-    Asset, CheckDefinition, CheckResult, ColumnMeta, ColumnProfile, DatasetProfile, JobDefinition,
-    JobRun, JobStatus, LineageEdge, LineageNode,
+    map_sql_type, AiMessage, AiRequest, AiResponse, AiRole, AnomalyFinding, AnomalyReport,
+    AnomalySeverity, Asset, CatalogDatabase, CatalogSchema, CatalogTable, CatalogTree,
+    CheckDefinition, CheckResult, ColumnMeta, ColumnProfile, DatasetProfile, JobDefinition, JobRun,
+    JobStatus, LineageEdge, LineageNode,
 };
 pub use events::{EventBus, PlatformEvent};
 pub use logging::init_tracing;
