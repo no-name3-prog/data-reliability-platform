@@ -59,6 +59,15 @@ Optional: if you use the Python `pre-commit` tool, `.pre-commit-config.yaml` als
 2. `make ci` must pass locally (containerized)
 3. CI on GitHub runs the same Docker gate — no host Rust on runners
 
+## Plugins
+
+Adding connectors, rules, detectors, notifiers, or AI providers:
+
+1. Read [docs/plugin-architecture.md](docs/plugin-architecture.md)
+2. Follow [docs/contributing-plugins.md](docs/contributing-plugins.md)
+3. Copy `plugins/example-connector` when possible
+4. Register **one line** in `crates/drp-api/src/app.rs` — do not modify core traits for routine plugins
+
 ## Code standards
 
 - `rustfmt` + `clippy -D warnings` (see `rustfmt.toml`, `clippy.toml`)

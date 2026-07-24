@@ -1,4 +1,7 @@
 //! Application composition root.
+//!
+//! **Plugin registration happens only here** (or via thin `register_*` helpers
+//! called from here). Feature services never import concrete plugin types.
 
 use std::time::Duration;
 
@@ -12,6 +15,8 @@ use tower_http::timeout::TimeoutLayer;
 use tower_http::trace::{DefaultOnFailure, DefaultOnResponse, TraceLayer};
 use tracing::{info, Level};
 
+use drp_ai::{register_builtin_ai_providers, AiService};
+use drp_anomaly::{register_builtin_detectors, AnomalyService};
 use drp_common::AppConfig;
 use drp_connectors::register_builtin_connectors;
 use drp_core::{init_tracing, Platform};
@@ -29,16 +34,32 @@ use crate::state::AppState;
 
 const REQUEST_ID_HEADER: HeaderName = HeaderName::from_static("x-request-id");
 
+/// Register every built-in and workspace plugin bundle.
+///
+/// To add a third-party / new plugin crate: call its `register(&registry)` here.
+/// Do not change `drp-core` or feature services.
+fn register_all_plugins(platform: &Platform) {
+    let reg = &platform.plugins;
+
+    // Built-in capability crates
+    register_builtin_connectors(reg);
+    register_builtin_profilers(reg);
+    register_builtin_validators(reg);
+    register_builtin_detectors(reg);
+    register_builtin_notifiers(reg);
+    register_builtin_ai_providers(reg);
+
+    // Example external-style plugin (template for contributors)
+    drp_plugin_example_connector::register(reg);
+}
+
 /// Build platform services and register built-in plugins.
 pub fn build_app(config: AppConfig) -> drp_common::Result<AppState> {
     init_tracing(&config)?;
     metrics::init_metrics()?;
 
     let platform = Platform::new(config);
-    register_builtin_connectors(&platform.plugins);
-    register_builtin_profilers(&platform.plugins);
-    register_builtin_validators(&platform.plugins);
-    register_builtin_notifiers(&platform.plugins);
+    register_all_plugins(&platform);
 
     info!(
         plugins = platform.plugins.len(),
@@ -74,10 +95,16 @@ pub fn build_app(config: AppConfig) -> drp_common::Result<AppState> {
         platform.config.scheduler.max_concurrent_jobs,
     );
     let notifications = NotificationService::new(
-        plugins,
+        plugins.clone(),
         platform.config.notifications.default_channels.clone(),
         platform.config.notifications.enabled,
     );
+    let anomaly = AnomalyService::new(
+        store.clone(),
+        plugins.clone(),
+        platform.config.profiling.sample_size,
+    );
+    let ai = AiService::new(plugins);
 
     Ok(AppState {
         platform,
@@ -88,6 +115,8 @@ pub fn build_app(config: AppConfig) -> drp_common::Result<AppState> {
         lineage,
         scheduler,
         notifications,
+        anomaly,
+        ai,
     })
 }
 

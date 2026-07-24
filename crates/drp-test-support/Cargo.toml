@@ -21,6 +21,8 @@ drp-lineage.workspace = true
 drp-scheduler.workspace = true
 drp-notifications.workspace = true
 drp-api.workspace = true
+drp-ai.workspace = true
+drp-anomaly.workspace = true
 
 async-trait.workspace = true
 indexmap.workspace = true

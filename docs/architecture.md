@@ -1,43 +1,58 @@
 # Architecture
 
+## Overview
+
+The platform is a **Cargo workspace** of small crates with a **trait-based plugin system**. Core defines contracts; implementations register at the **composition root** (`drp-api`).
+
+For plugins specifically, read **[plugin-architecture.md](./plugin-architecture.md)**.
+
 ## Crate dependency graph
 
 ```text
 drp-common
     ▲
-drp-core          (domain · plugins · events · Platform)
+drp-core            domain · plugin traits · PluginRegistry · events · Platform
     ▲
     ├─ drp-storage
-    ├─ drp-connectors
-    ├─ drp-notifications
-    ├─ drp-metadata
-    ├─ drp-profiling
-    ├─ drp-validation
+    ├─ drp-connectors      ─┐
+    ├─ drp-profiling         │ plugin implementation crates
+    ├─ drp-validation        │ (also: plugins/*)
+    ├─ drp-anomaly           │
+    ├─ drp-ai                │
+    ├─ drp-notifications   ─┘
+    ├─ drp-metadata        (services: use registry by id)
     ├─ drp-lineage
     └─ drp-scheduler
          ▲
-      drp-api         (composition root · HTTP · binary)
+      drp-api              composition root + HTTP + binary
 ```
 
 ## Plugin extension points
 
-| Trait | Built-ins |
-|-------|-----------|
-| `ConnectorPlugin` | `mock` |
+| Trait | Built-ins (ids) |
+|-------|-----------------|
+| `ConnectorPlugin` | `mock`, `fixture`, `example` |
 | `ProfilerPlugin` | `basic` |
 | `ValidatorPlugin` | `not_null`, `unique`, `regex` |
+| `AnomalyDetectorPlugin` | `null_spike`, `zscore` |
 | `NotificationPlugin` | `log` |
-| `JobHandler` | `noop` |
+| `AiProviderPlugin` | `echo` |
+| `JobHandler` (scheduler) | `noop` |
 
-Register new plugins in `drp_api::app::build_app` without changing feature services.
+New plugins: implement trait → `register` helper → **one line** in `register_all_plugins`.
 
 ## Runtime topology (compose)
 
 ```text
 [client] → api:8080 → memory store (default)
-                   ↘ config.infra.database_url → postgres:5432
-                   ↘ config.infra.redis_url    → redis:6379
-                   ↘ config.infra.s3_endpoint  → minio:9000
+                   ↘ postgres / redis / minio (compose DNS)
+                   ↘ /metrics ← prometheus:9090
 ```
 
-Postgres/Redis/MinIO are **available from day one** for future backends; the default app store is in-memory so unit tests stay fast inside the `dev` container.
+## Related docs
+
+- [Repository structure](./repository-structure.md)
+- [Contributing plugins](./contributing-plugins.md)
+- [Development process](./development-process.md)
+- [Testing](./testing.md)
+- [Container workflow](./container-workflow.md)

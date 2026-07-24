@@ -82,10 +82,25 @@ make up           # api + prometheus + infra
 | `drp-metadata` | Asset catalog |
 | `drp-profiling` | Profiling engine |
 | `drp-validation` | DQ checks |
+| `drp-anomaly` | Anomaly detector plugins |
+| `drp-ai` | AI / LLM provider plugins |
 | `drp-lineage` | Lineage graph |
 | `drp-scheduler` | Jobs |
 | `drp-notifications` | Alerts |
 | `drp-api` | HTTP API + binary |
+
+## Plugin system
+
+Connectors, validation rules, anomaly detectors, notifications, and AI providers are **Rust traits** in `drp-core`. Implementations are separate crates registered only at the API composition root.
+
+| Doc | Purpose |
+|-----|---------|
+| [Plugin architecture](docs/plugin-architecture.md) | Traits, registry, dependency rules |
+| [Contributing plugins](docs/contributing-plugins.md) | Step-by-step for new plugins |
+| [Repository structure](docs/repository-structure.md) | Where code lives |
+| [Development process](docs/development-process.md) | Branch → PR → CI |
+
+Template: `plugins/example-connector`.
 
 ## Documentation
 

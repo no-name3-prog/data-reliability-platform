@@ -1,5 +1,7 @@
 //! HTTP route modules.
 
+mod ai;
+mod anomaly;
 mod assets;
 mod checks;
 mod health;
@@ -24,5 +26,7 @@ pub fn router() -> Router<AppState> {
         .merge(profiles::router())
         .merge(lineage::router())
         .merge(jobs::router())
+        .merge(anomaly::router())
+        .merge(ai::router())
         .merge(plugins::router())
 }

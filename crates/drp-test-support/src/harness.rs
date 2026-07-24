@@ -2,6 +2,8 @@
 
 use std::sync::Arc;
 
+use drp_ai::register_builtin_ai_providers;
+use drp_anomaly::register_builtin_detectors;
 use drp_api::{build_app, build_router, AppState};
 use drp_common::AppConfig;
 use drp_connectors::{
@@ -94,7 +96,9 @@ impl PlatformHarness {
         register_builtin_connectors(&plugins);
         register_builtin_profilers(&plugins);
         register_builtin_validators(&plugins);
+        register_builtin_detectors(&plugins);
         register_builtin_notifiers(&plugins);
+        register_builtin_ai_providers(&plugins);
 
         // Ensure mock is present (also re-register for clarity).
         plugins.register_connector(Arc::new(MockConnector::new()));
