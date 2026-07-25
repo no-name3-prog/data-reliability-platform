@@ -3,7 +3,7 @@
 # Built only via Docker — no host toolchain required.
 
 # ---------- builder ----------
-FROM rust:1.85-bookworm AS builder
+FROM rust:1.88-bookworm AS builder
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
         pkg-config libssl-dev \

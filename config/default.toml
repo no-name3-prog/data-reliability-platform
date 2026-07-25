@@ -14,7 +14,7 @@ cors_allow_origins = ["*"]
 
 [storage]
 # memory is default; postgres URL is available via compose for future backends
-backend = "memory"
+backend = "memory"  # memory | postgres
 database_url = "postgres://drp:drp@postgres:5432/drp"
 max_connections = 10
 

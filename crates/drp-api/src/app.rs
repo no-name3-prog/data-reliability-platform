@@ -54,7 +54,7 @@ fn register_all_plugins(platform: &Platform) {
 }
 
 /// Build platform services and register built-in plugins.
-pub fn build_app(config: AppConfig) -> drp_common::Result<AppState> {
+pub async fn build_app(config: AppConfig) -> drp_common::Result<AppState> {
     init_tracing(&config)?;
     metrics::init_metrics()?;
 
@@ -70,7 +70,7 @@ pub fn build_app(config: AppConfig) -> drp_common::Result<AppState> {
         "platform plugins registered (infra URLs are compose DNS names)"
     );
 
-    let store = open_store(&platform.config)?;
+    let store = open_store(&platform.config).await?;
     let events = platform.events.clone();
     let plugins = platform.plugins.clone();
 

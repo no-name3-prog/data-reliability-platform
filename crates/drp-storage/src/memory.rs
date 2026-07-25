@@ -20,7 +20,8 @@ pub struct MemoryStore {
     check_results: RwLock<HashMap<CheckId, Vec<CheckResult>>>,
     validation_runs: RwLock<HashMap<RunId, ValidationRun>>,
     validation_runs_order: RwLock<Vec<RunId>>,
-    profiles: RwLock<HashMap<AssetId, DatasetProfile>>,
+    /// Profile history per asset (oldest first).
+    profiles: RwLock<HashMap<AssetId, Vec<DatasetProfile>>>,
     jobs: RwLock<HashMap<JobId, JobDefinition>>,
     job_runs: RwLock<HashMap<RunId, JobRun>>,
     job_runs_by_job: RwLock<HashMap<JobId, Vec<RunId>>>,
@@ -152,12 +153,48 @@ impl Store for MemoryStore {
     async fn save_profile(&self, profile: DatasetProfile) -> Result<DatasetProfile> {
         self.profiles
             .write()
-            .insert(profile.asset_id, profile.clone());
+            .entry(profile.asset_id)
+            .or_default()
+            .push(profile.clone());
         Ok(profile)
     }
 
     async fn latest_profile(&self, asset_id: &AssetId) -> Result<Option<DatasetProfile>> {
-        Ok(self.profiles.read().get(asset_id).cloned())
+        Ok(self
+            .profiles
+            .read()
+            .get(asset_id)
+            .and_then(|v| v.last().cloned()))
+    }
+
+    async fn list_profile_history(
+        &self,
+        asset_id: &AssetId,
+        limit: Option<usize>,
+    ) -> Result<Vec<DatasetProfile>> {
+        let mut items = self
+            .profiles
+            .read()
+            .get(asset_id)
+            .cloned()
+            .unwrap_or_default();
+        items.reverse(); // newest first
+        if let Some(n) = limit {
+            items.truncate(n);
+        }
+        Ok(items)
+    }
+
+    async fn get_profile_by_run(
+        &self,
+        asset_id: &AssetId,
+        run_id: &RunId,
+    ) -> Result<Option<DatasetProfile>> {
+        Ok(self
+            .profiles
+            .read()
+            .get(asset_id)
+            .and_then(|v| v.iter().find(|p| p.run_id == *run_id).cloned()))
     }
 
     async fn upsert_job(&self, job: JobDefinition) -> Result<JobDefinition> {

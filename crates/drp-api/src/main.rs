@@ -47,7 +47,7 @@ async fn main() -> anyhow::Result<()> {
         config.api.port = port;
     }
 
-    let state = build_app(config)?;
+    let state = build_app(config).await?;
     let bind = state.platform.config.api.bind_addr();
     let scheduler_enabled = state.platform.config.scheduler.enabled;
     let tick = Duration::from_secs(state.platform.config.scheduler.tick_interval_secs);

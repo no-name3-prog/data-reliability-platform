@@ -1,0 +1,5 @@
+order_id,customer_email,amount,status
+1,alice@example.com,42.5,paid
+2,,10.0,pending
+3,bob@example.com,99.9,paid
+4,carol@example.com,5.25,cancelled

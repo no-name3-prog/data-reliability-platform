@@ -80,7 +80,7 @@ make up           # api + prometheus + infra
 | `drp-storage` | Persistence trait + memory backend |
 | `drp-connectors` | Connector plugins (`mock`) |
 | `drp-metadata` | Asset catalog |
-| `drp-profiling` | Profiling engine |
+| `drp-profiling` | Profiling (stats, semantic types, history) |
 | `drp-validation` | Validation engine (rules, schedule, history) |
 | `drp-anomaly` | Anomaly detector plugins |
 | `drp-ai` | AI / LLM provider plugins |
@@ -101,6 +101,7 @@ Connectors, validation rules, anomaly detectors, notifications, and AI providers
 
 | Doc | Purpose |
 |-----|---------|
+| [Profiling](docs/profiling.md) | Stats, semantic types, history |
 | [Validation](docs/validation.md) | Rules, schedule, result history |
 | [Plugin architecture](docs/plugin-architecture.md) | Traits, registry, dependency rules |
 | [Contributing plugins](docs/contributing-plugins.md) | Step-by-step for new plugins |
