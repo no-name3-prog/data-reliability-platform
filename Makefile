@@ -4,14 +4,16 @@
 
 .DEFAULT_GOAL := help
 
-COMPOSE ?= $(shell if command -v docker-compose >/dev/null 2>&1; then echo docker-compose; \
-	elif docker compose version >/dev/null 2>&1; then echo "docker compose"; \
-	else echo docker-compose; fi)
+# Prefer Compose V2 (`docker compose`) — GitHub Actions and modern Docker Desktop.
+# Fall back to standalone `docker-compose` only if the plugin is missing.
+COMPOSE ?= $(shell if docker compose version >/dev/null 2>&1; then echo "docker compose"; \
+	elif command -v docker-compose >/dev/null 2>&1; then echo docker-compose; \
+	else echo "docker compose"; fi)
 
 DC  := $(COMPOSE)
 DEV := $(DC) run --rm --no-deps dev
 
-.PHONY: help doctor ensure-docker hooks \
+.PHONY: help doctor ensure-docker hooks wait-infra bootstrap-image down-volumes smoke-up smoke-probe \
 	bootstrap infra up down restart logs ps shell \
 	build release test test-unit test-integration test-regression test-all test-cargo \
 	lint fmt fmt-check clippy check deny doc docs-serve \
@@ -64,14 +66,27 @@ doctor: ensure-docker
 hooks:
 	@./scripts/install-hooks.sh
 
-bootstrap: ensure-docker
+bootstrap-image: ensure-docker
 	$(DC) build dev
+
+bootstrap: ensure-docker bootstrap-image
 	$(DC) up -d postgres redis minio minio-init
-	@./scripts/install-hooks.sh
+	@./scripts/install-hooks.sh || true
 	@echo "Infra up + toolchain (incl. nextest) + hooks. Next: make verify"
 
 infra: ensure-docker
 	$(DC) up -d postgres redis minio minio-init
+
+wait-infra: ensure-docker
+	@echo "Waiting for postgres/redis healthy..."
+	@for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30; do \
+	  if $(DC) exec -T postgres pg_isready -U $${POSTGRES_USER:-drp} -d $${POSTGRES_DB:-drp} >/dev/null 2>&1 \
+	    && $(DC) exec -T redis redis-cli ping 2>/dev/null | grep -q PONG; then \
+	      echo "Infrastructure is healthy."; exit 0; \
+	  fi; \
+	  sleep 2; \
+	done; \
+	echo "ERROR: infrastructure not healthy in time"; $(DC) ps; exit 1
 
 up: ensure-docker
 	$(DC) up -d --build postgres redis minio minio-init api prometheus
@@ -79,6 +94,9 @@ up: ensure-docker
 
 down: ensure-docker
 	$(DC) down --remove-orphans
+
+down-volumes: ensure-docker
+	$(DC) down -v --remove-orphans
 
 restart: down up
 
@@ -166,3 +184,20 @@ ci: verify
 clean: ensure-docker
 	$(DC) down -v --remove-orphans --rmi local || true
 	@echo "Cleaned compose resources."
+
+# CI smoke helpers (Compose V2 via $(DC))
+smoke-up: ensure-docker
+	$(DC) up -d --build postgres redis minio minio-init api
+
+smoke-probe: ensure-docker
+	@set -e; \
+	for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40; do \
+	  if curl -fsS http://127.0.0.1:$${DRP_API_PORT:-8080}/readyz; then \
+	    echo; curl -fsS http://127.0.0.1:$${DRP_API_PORT:-8080}/livez; echo; \
+	    curl -fsS http://127.0.0.1:$${DRP_API_PORT:-8080}/metrics | head -30; echo; \
+	    curl -fsS http://127.0.0.1:$${DRP_API_PORT:-8080}/v1/plugins | head -c 200; echo; \
+	    exit 0; \
+	  fi; \
+	  sleep 3; \
+	done; \
+	echo "ERROR: API not ready"; $(DC) logs api || true; exit 1
