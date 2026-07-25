@@ -8,8 +8,8 @@ use parking_lot::RwLock;
 use crate::traits::Store;
 use drp_common::{AssetId, CheckId, IncidentId, JobId, Result, RunId};
 use drp_core::{
-    AnomalyReport, Asset, CheckDefinition, CheckResult, DatasetProfile, Incident, JobDefinition,
-    JobRun, ValidationRun,
+    AnomalyReport, Asset, CheckDefinition, CheckResult, DatasetProfile, Incident,
+    IncidentTimelineEvent, JobDefinition, JobRun, ValidationRun,
 };
 
 /// Thread-safe in-memory implementation of [`Store`].
@@ -27,6 +27,7 @@ pub struct MemoryStore {
     anomaly_reports_by_asset: RwLock<HashMap<AssetId, Vec<RunId>>>,
     incidents: RwLock<HashMap<IncidentId, Incident>>,
     incidents_order: RwLock<Vec<IncidentId>>,
+    incident_events: RwLock<HashMap<IncidentId, Vec<IncidentTimelineEvent>>>,
     jobs: RwLock<HashMap<JobId, JobDefinition>>,
     job_runs: RwLock<HashMap<RunId, JobRun>>,
     job_runs_by_job: RwLock<HashMap<JobId, Vec<RunId>>>,
@@ -268,6 +269,42 @@ impl Store for MemoryStore {
             .collect();
         if let Some(n) = limit {
             items.truncate(n);
+        }
+        Ok(items)
+    }
+
+    async fn append_incident_event(
+        &self,
+        event: IncidentTimelineEvent,
+    ) -> Result<IncidentTimelineEvent> {
+        self.incident_events
+            .write()
+            .entry(event.incident_id)
+            .or_default()
+            .push(event.clone());
+        // Keep timeline cache on incident in sync when present.
+        if let Some(inc) = self.incidents.write().get_mut(&event.incident_id) {
+            inc.timeline.push(event.clone());
+            inc.updated_at = event.at;
+        }
+        Ok(event)
+    }
+
+    async fn list_incident_events(
+        &self,
+        incident_id: &IncidentId,
+        limit: Option<usize>,
+    ) -> Result<Vec<IncidentTimelineEvent>> {
+        let mut items = self
+            .incident_events
+            .read()
+            .get(incident_id)
+            .cloned()
+            .unwrap_or_default();
+        if let Some(n) = limit {
+            if items.len() > n {
+                items = items[items.len() - n..].to_vec();
+            }
         }
         Ok(items)
     }

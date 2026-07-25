@@ -5,6 +5,8 @@ use drp_common::{AnomalyConfig, AssetId, DataType, RunId, UtcTimestamp};
 use drp_core::{
     AnomalyKind, ColumnProfile, DatasetProfile, EventBus, PluginRegistry, SemanticType,
 };
+use drp_incidents::IncidentService;
+use drp_notifications::NotificationService;
 use drp_storage::{MemoryStore, Store};
 use std::sync::Arc;
 
@@ -157,7 +159,10 @@ async fn service_opens_incidents_from_profile_history() {
         ..AnomalyConfig::default()
     };
 
-    let svc = AnomalyService::new(store, PluginRegistry::new(), EventBus::new(), 1000, cfg);
+    let events = EventBus::new();
+    let notifications = NotificationService::new(PluginRegistry::new(), vec!["log".into()], true);
+    let incidents = IncidentService::new(store.clone(), events.clone(), notifications, true);
+    let svc = AnomalyService::new(store, PluginRegistry::new(), events, 1000, cfg, incidents);
     let report = svc.analyze_profiles(&asset).await.unwrap();
     assert!(report.has_findings());
     assert!(!report.incident_ids.is_empty());

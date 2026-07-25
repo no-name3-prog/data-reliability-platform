@@ -15,7 +15,7 @@ pub mod id;
 pub mod time;
 pub mod types;
 
-pub use config::{AnomalyConfig, AppConfig, ConfigError};
+pub use config::{AnomalyConfig, AppConfig, ConfigError, NotificationsConfig};
 pub use error::{Error, Result};
 pub use id::{AssetId, CheckId, DatasetId, IncidentId, JobId, PluginId, RunId, TenantId};
 pub use time::UtcTimestamp;

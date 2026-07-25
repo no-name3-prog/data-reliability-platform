@@ -5,6 +5,7 @@ mod anomaly;
 mod assets;
 mod checks;
 mod health;
+mod incidents;
 mod jobs;
 mod lineage;
 mod plugins;
@@ -27,6 +28,7 @@ pub fn router() -> Router<AppState> {
         .merge(lineage::router())
         .merge(jobs::router())
         .merge(anomaly::router())
+        .merge(incidents::router())
         .merge(ai::router())
         .merge(plugins::router())
 }

@@ -11,6 +11,7 @@ members = [
     "crates/drp-lineage",
     "crates/drp-scheduler",
     "crates/drp-notifications",
+    "crates/drp-incidents",
     "crates/drp-anomaly",
     "crates/drp-ai",
     "crates/drp-api",
@@ -44,6 +45,7 @@ drp-validation = { path = "crates/drp-validation", version = "0.1.0" }
 drp-lineage = { path = "crates/drp-lineage", version = "0.1.0" }
 drp-scheduler = { path = "crates/drp-scheduler", version = "0.1.0" }
 drp-notifications = { path = "crates/drp-notifications", version = "0.1.0" }
+drp-incidents = { path = "crates/drp-incidents", version = "0.1.0" }
 drp-anomaly = { path = "crates/drp-anomaly", version = "0.1.0" }
 drp-ai = { path = "crates/drp-ai", version = "0.1.0" }
 drp-api = { path = "crates/drp-api", version = "0.1.0" }
@@ -88,6 +90,7 @@ http-body-util = "0.1"
 hyper = "1"
 
 regex = "1"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 csv = "1"
 schemars = { version = "0.8", features = ["chrono", "uuid1"] }
 

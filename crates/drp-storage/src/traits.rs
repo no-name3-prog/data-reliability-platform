@@ -4,8 +4,8 @@ use async_trait::async_trait;
 
 use drp_common::{AssetId, CheckId, IncidentId, JobId, Result, RunId};
 use drp_core::{
-    AnomalyReport, Asset, CheckDefinition, CheckResult, DatasetProfile, Incident, JobDefinition,
-    JobRun, ValidationRun,
+    AnomalyReport, Asset, CheckDefinition, CheckResult, DatasetProfile, Incident,
+    IncidentTimelineEvent, JobDefinition, JobRun, ValidationRun,
 };
 
 /// Persistence interface used by all feature crates.
@@ -82,6 +82,17 @@ pub trait Store: Send + Sync {
         asset_id: Option<&AssetId>,
         limit: Option<usize>,
     ) -> Result<Vec<Incident>>;
+    /// Append a timeline / history event for an incident.
+    async fn append_incident_event(
+        &self,
+        event: IncidentTimelineEvent,
+    ) -> Result<IncidentTimelineEvent>;
+    /// List timeline events for an incident (oldest first).
+    async fn list_incident_events(
+        &self,
+        incident_id: &IncidentId,
+        limit: Option<usize>,
+    ) -> Result<Vec<IncidentTimelineEvent>>;
     /// Upsert a job definition.
     async fn upsert_job(&self, job: JobDefinition) -> Result<JobDefinition>;
     /// Get a job by id.

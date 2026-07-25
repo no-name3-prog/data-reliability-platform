@@ -11,6 +11,7 @@ use drp_core::{
     CheckDefinition, CheckResult, EventBus, JobDefinition, PlatformEvent, PluginContext,
     PluginInfo, PluginRegistry, ValidationRun,
 };
+use drp_incidents::IncidentService;
 use drp_storage::Store;
 
 use crate::engine::RuleEngine;
@@ -24,6 +25,7 @@ pub struct ValidationService {
     events: EventBus,
     sample_size: usize,
     fail_fast: bool,
+    incidents: Option<IncidentService>,
 }
 
 impl ValidationService {
@@ -43,7 +45,14 @@ impl ValidationService {
             events,
             sample_size,
             fail_fast,
+            incidents: None,
         }
+    }
+
+    /// Attach incident management (failed checks open incidents).
+    pub fn with_incidents(mut self, incidents: IncidentService) -> Self {
+        self.incidents = Some(incidents);
+        self
     }
 
     /// Access the rule engine (list rules, resolve by id).
@@ -134,6 +143,27 @@ impl ValidationService {
                 status: saved.status,
             })
             .await;
+
+        if matches!(saved.status, ValidationStatus::Failed) {
+            if let Some(ref incidents) = self.incidents {
+                let check = self.get_check(&saved.check_id).await?;
+                if let Err(e) = incidents
+                    .open_from_validation(
+                        check.asset_id,
+                        check.id,
+                        saved.run_id,
+                        check.validator.clone(),
+                        check.severity,
+                        format!("Validation failed: {}", check.name),
+                        saved.message.clone(),
+                        vec![check.asset_id],
+                    )
+                    .await
+                {
+                    warn!(error = %e, "failed to open incident for validation failure");
+                }
+            }
+        }
 
         Ok(saved)
     }

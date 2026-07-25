@@ -106,8 +106,20 @@ pub struct SchedulerConfig {
 pub struct NotificationsConfig {
     /// Master switch.
     pub enabled: bool,
-    /// Default channel plugin ids.
+    /// Default channel plugin ids (e.g. log, slack, email, webhook).
     pub default_channels: Vec<String>,
+    /// Slack incoming webhook URL (empty = dry-run log).
+    #[serde(default)]
+    pub slack_webhook_url: String,
+    /// Email recipient (empty = dry-run log).
+    #[serde(default)]
+    pub email_to: String,
+    /// Optional SMTP-style HTTP email bridge URL (SendGrid-like webhook).
+    #[serde(default)]
+    pub email_webhook_url: String,
+    /// Generic webhook URL for incident payloads (empty = dry-run log).
+    #[serde(default)]
+    pub webhook_url: String,
 }
 
 /// Profiling defaults.
@@ -214,7 +226,16 @@ impl Default for AppConfig {
             },
             notifications: NotificationsConfig {
                 enabled: true,
-                default_channels: vec!["log".into()],
+                default_channels: vec![
+                    "log".into(),
+                    "slack".into(),
+                    "email".into(),
+                    "webhook".into(),
+                ],
+                slack_webhook_url: String::new(),
+                email_to: String::new(),
+                email_webhook_url: String::new(),
+                webhook_url: String::new(),
             },
             profiling: ProfilingConfig {
                 sample_size: 10_000,

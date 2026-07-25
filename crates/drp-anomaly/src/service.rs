@@ -4,10 +4,11 @@ use std::sync::Arc;
 
 use tracing::{info, instrument};
 
-use drp_common::{AnomalyConfig, AssetId, Error, IncidentId, Result, RunId, UtcTimestamp};
+use drp_common::{AnomalyConfig, AssetId, Error, IncidentId, Result, RunId};
 use drp_core::{
     AnomalyReport, EventBus, Incident, IncidentStatus, PlatformEvent, PluginContext, PluginRegistry,
 };
+use drp_incidents::IncidentService;
 use drp_storage::Store;
 
 use crate::engine::{ProfileAnomalyEngine, PROFILE_HISTORY_DETECTOR};
@@ -22,6 +23,7 @@ pub struct AnomalyService {
     default_detector: String,
     config: AnomalyConfig,
     engine: Arc<ProfileAnomalyEngine>,
+    incidents: IncidentService,
 }
 
 impl AnomalyService {
@@ -32,6 +34,7 @@ impl AnomalyService {
         events: EventBus,
         sample_size: usize,
         config: AnomalyConfig,
+        incidents: IncidentService,
     ) -> Self {
         Self {
             store,
@@ -41,6 +44,7 @@ impl AnomalyService {
             default_detector: "null_spike".into(),
             config,
             engine: Arc::new(ProfileAnomalyEngine::with_defaults()),
+            incidents,
         }
     }
 
@@ -114,33 +118,29 @@ impl AnomalyService {
             .ok_or_else(|| Error::not_found(format!("anomaly report {run_id}")))
     }
 
-    /// List incidents.
+    /// List incidents via incident management service.
     pub async fn list_incidents(
         &self,
         asset_id: Option<&AssetId>,
         limit: Option<usize>,
     ) -> Result<Vec<Incident>> {
-        self.store.list_incidents(asset_id, limit).await
+        self.incidents.list(asset_id, limit).await
     }
 
-    /// Get incident.
+    /// Get incident with full timeline.
     pub async fn get_incident(&self, id: &IncidentId) -> Result<Incident> {
-        self.store
-            .get_incident(id)
-            .await?
-            .ok_or_else(|| Error::not_found(format!("incident {id}")))
+        self.incidents.get(id).await
     }
 
-    /// Update incident status.
+    /// Update incident status via incident management service.
     pub async fn set_incident_status(
         &self,
         id: &IncidentId,
         status: IncidentStatus,
     ) -> Result<Incident> {
-        let mut incident = self.get_incident(id).await?;
-        incident.status = status;
-        incident.updated_at = UtcTimestamp::now();
-        self.store.save_incident(incident).await
+        self.incidents
+            .set_status(id, status, Some("api".into()), None)
+            .await
     }
 
     async fn persist_report_and_incidents(
@@ -150,22 +150,18 @@ impl AnomalyService {
         let mut incident_ids = Vec::new();
         if self.config.create_incidents {
             for finding in &report.findings {
-                let incident = Incident::from_finding(
-                    report.asset_id,
-                    report.run_id,
-                    report.baseline_run_id,
-                    report.current_run_id,
-                    finding,
-                );
-                let id = incident.id;
-                let saved = self.store.save_incident(incident).await?;
-                self.events
-                    .publish(PlatformEvent::IncidentOpened {
-                        incident_id: saved.id,
-                        asset_id: saved.asset_id,
-                    })
-                    .await;
-                incident_ids.push(id);
+                let opened = self
+                    .incidents
+                    .open_from_anomaly(
+                        report.asset_id,
+                        report.run_id,
+                        report.baseline_run_id,
+                        report.current_run_id,
+                        finding,
+                        vec![report.asset_id],
+                    )
+                    .await?;
+                incident_ids.push(opened.id);
             }
         }
         report.incident_ids = incident_ids;

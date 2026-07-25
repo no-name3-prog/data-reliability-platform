@@ -2,7 +2,7 @@
 
 use indexmap::IndexMap;
 use serde_json::Value;
-use tracing::instrument;
+use tracing::{instrument, warn};
 
 use drp_common::Result;
 use drp_core::{PluginContext, PluginRegistry};
@@ -25,7 +25,12 @@ impl NotificationService {
         }
     }
 
-    /// Send to the default channels.
+    /// Configured default channel ids.
+    pub fn default_channels(&self) -> &[String] {
+        &self.default_channels
+    }
+
+    /// Send to the default channels (best-effort per channel).
     #[instrument(skip(self, metadata))]
     pub async fn notify(
         &self,
@@ -36,11 +41,11 @@ impl NotificationService {
         if !self.enabled {
             return Ok(());
         }
-        self.notify_channels(&self.default_channels, subject, body, metadata)
+        self.notify_channels(&self.default_channels.clone(), subject, body, metadata)
             .await
     }
 
-    /// Send to explicit channels.
+    /// Send to explicit channels (continues on individual channel errors).
     pub async fn notify_channels(
         &self,
         channels: &[String],
@@ -50,8 +55,14 @@ impl NotificationService {
     ) -> Result<()> {
         let ctx = PluginContext::new();
         for channel in channels {
-            let plugin = self.plugins.notification(channel)?;
-            plugin.send(subject, body, &metadata, &ctx).await?;
+            match self.plugins.notification(channel) {
+                Ok(plugin) => {
+                    if let Err(e) = plugin.send(subject, body, &metadata, &ctx).await {
+                        warn!(%channel, error = %e, "notification channel failed");
+                    }
+                }
+                Err(e) => warn!(%channel, error = %e, "notification channel missing"),
+            }
         }
         Ok(())
     }

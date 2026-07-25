@@ -7,8 +7,8 @@ use tracing::info;
 
 use drp_common::{AssetId, CheckId, Error, IncidentId, JobId, Result, RunId};
 use drp_core::{
-    AnomalyReport, Asset, CheckDefinition, CheckResult, DatasetProfile, Incident, JobDefinition,
-    JobRun, ValidationRun,
+    AnomalyReport, Asset, CheckDefinition, CheckResult, DatasetProfile, Incident,
+    IncidentTimelineEvent, JobDefinition, JobRun, ValidationRun,
 };
 
 use crate::traits::Store;
@@ -101,8 +101,15 @@ impl PostgresStore {
                 created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
                 updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
             );
+            CREATE TABLE IF NOT EXISTS incident_events (
+                id TEXT PRIMARY KEY,
+                incident_id TEXT NOT NULL,
+                payload JSONB NOT NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
             CREATE INDEX IF NOT EXISTS idx_anomaly_reports_asset ON anomaly_reports(asset_id);
             CREATE INDEX IF NOT EXISTS idx_incidents_asset ON incidents(asset_id);
+            CREATE INDEX IF NOT EXISTS idx_incident_events_incident ON incident_events(incident_id);
             "#,
         )
         .execute(&self.pool)
@@ -617,6 +624,57 @@ impl Store for PostgresStore {
             .await
             .map_err(|e| Error::storage(e.to_string()))?
         };
+        rows.into_iter()
+            .map(|r| {
+                serde_json::from_value(
+                    r.try_get("payload")
+                        .map_err(|e| Error::storage(e.to_string()))?,
+                )
+                .map_err(|e| Error::storage(e.to_string()))
+            })
+            .collect()
+    }
+
+    async fn append_incident_event(
+        &self,
+        event: IncidentTimelineEvent,
+    ) -> Result<IncidentTimelineEvent> {
+        let payload = serde_json::to_value(&event).map_err(|e| Error::storage(e.to_string()))?;
+        sqlx::query(
+            r#"
+            INSERT INTO incident_events (id, incident_id, payload)
+            VALUES ($1, $2, $3)
+            ON CONFLICT (id) DO UPDATE SET payload = EXCLUDED.payload
+            "#,
+        )
+        .bind(event.id.to_string())
+        .bind(event.incident_id.to_string())
+        .bind(payload)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| Error::storage(e.to_string()))?;
+        Ok(event)
+    }
+
+    async fn list_incident_events(
+        &self,
+        incident_id: &IncidentId,
+        limit: Option<usize>,
+    ) -> Result<Vec<IncidentTimelineEvent>> {
+        let lim = limit.unwrap_or(500) as i64;
+        let rows = sqlx::query(
+            r#"
+            SELECT payload FROM incident_events
+            WHERE incident_id = $1
+            ORDER BY created_at ASC
+            LIMIT $2
+            "#,
+        )
+        .bind(incident_id.to_string())
+        .bind(lim)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| Error::storage(e.to_string()))?;
         rows.into_iter()
             .map(|r| {
                 serde_json::from_value(

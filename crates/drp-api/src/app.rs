@@ -20,6 +20,7 @@ use drp_anomaly::{register_builtin_detectors, AnomalyService};
 use drp_common::AppConfig;
 use drp_connectors::register_builtin_connectors;
 use drp_core::{init_tracing, Platform};
+use drp_incidents::IncidentService;
 use drp_lineage::LineageService;
 use drp_metadata::MetadataService;
 use drp_notifications::{register_builtin_notifiers, NotificationService};
@@ -46,7 +47,7 @@ fn register_all_plugins(platform: &Platform) {
     register_builtin_profilers(reg);
     register_builtin_validators(reg);
     register_builtin_detectors(reg);
-    register_builtin_notifiers(reg);
+    register_builtin_notifiers(reg, &platform.config.notifications);
     register_builtin_ai_providers(reg);
 
     // Example external-style plugin (template for contributors)
@@ -81,13 +82,25 @@ pub async fn build_app(config: AppConfig) -> drp_common::Result<AppState> {
         events.clone(),
         platform.config.profiling.sample_size,
     );
+    let notifications = NotificationService::new(
+        plugins.clone(),
+        platform.config.notifications.default_channels.clone(),
+        platform.config.notifications.enabled,
+    );
+    let incidents = IncidentService::new(
+        store.clone(),
+        events.clone(),
+        notifications.clone(),
+        platform.config.notifications.enabled,
+    );
     let validation = ValidationService::new(
         store.clone(),
         plugins.clone(),
         events.clone(),
         platform.config.profiling.sample_size,
         platform.config.validation.fail_fast,
-    );
+    )
+    .with_incidents(incidents.clone());
     let lineage = LineageService::new(platform.config.lineage.max_depth);
     let scheduler = SchedulerService::new(
         store.clone(),
@@ -100,17 +113,13 @@ pub async fn build_app(config: AppConfig) -> drp_common::Result<AppState> {
         .register(std::sync::Arc::new(ValidationJobHandler::new(
             validation.clone(),
         )));
-    let notifications = NotificationService::new(
-        plugins.clone(),
-        platform.config.notifications.default_channels.clone(),
-        platform.config.notifications.enabled,
-    );
     let anomaly = AnomalyService::new(
         store.clone(),
         plugins.clone(),
         events,
         platform.config.profiling.sample_size,
         platform.config.anomaly.clone(),
+        incidents.clone(),
     );
     let ai = AiService::new(plugins);
 
@@ -123,6 +132,7 @@ pub async fn build_app(config: AppConfig) -> drp_common::Result<AppState> {
         lineage,
         scheduler,
         notifications,
+        incidents,
         anomaly,
         ai,
     })
