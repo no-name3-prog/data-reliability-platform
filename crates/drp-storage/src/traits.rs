@@ -32,10 +32,22 @@ pub trait Store: Send + Sync {
         check_id: &CheckId,
         limit: Option<usize>,
     ) -> Result<Vec<CheckResult>>;
-    /// Persist a dataset profile.
+    /// Append a dataset profile to history (does not overwrite previous runs).
     async fn save_profile(&self, profile: DatasetProfile) -> Result<DatasetProfile>;
     /// Latest profile for an asset.
     async fn latest_profile(&self, asset_id: &AssetId) -> Result<Option<DatasetProfile>>;
+    /// Profile history for an asset, newest first.
+    async fn list_profile_history(
+        &self,
+        asset_id: &AssetId,
+        limit: Option<usize>,
+    ) -> Result<Vec<DatasetProfile>>;
+    /// Fetch a specific profile run by id.
+    async fn get_profile_by_run(
+        &self,
+        asset_id: &AssetId,
+        run_id: &RunId,
+    ) -> Result<Option<DatasetProfile>>;
     /// Upsert a job definition.
     async fn upsert_job(&self, job: JobDefinition) -> Result<JobDefinition>;
     /// Get a job by id.

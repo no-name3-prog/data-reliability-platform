@@ -656,6 +656,7 @@ dependencies = [
  "drp-core",
  "drp-storage",
  "indexmap",
+ "regex",
  "serde",
  "serde_json",
  "tokio",

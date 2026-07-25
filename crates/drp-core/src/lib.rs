@@ -20,8 +20,9 @@ pub mod plugin;
 
 pub use domain::{
     AiMessage, AiRequest, AiResponse, AiRole, AnomalyFinding, AnomalyReport, AnomalySeverity,
-    Asset, CheckDefinition, CheckResult, ColumnMeta, ColumnProfile, DatasetProfile, JobDefinition,
-    JobRun, JobStatus, LineageEdge, LineageNode,
+    Asset, CheckDefinition, CheckResult, ColumnMeta, ColumnProfile, ColumnProfileDiff,
+    DatasetProfile, HistogramBin, JobDefinition, JobRun, JobStatus, LineageEdge, LineageNode,
+    ProfileDiff, SemanticType,
 };
 pub use events::{EventBus, PlatformEvent};
 pub use logging::init_tracing;

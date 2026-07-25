@@ -95,6 +95,12 @@ async fn discover(
     for a in &items {
         state.lineage.register_asset(a.id, a.fqn.clone());
     }
+    // Auto-profile every discovered dataset
+    let ids: Vec<_> = items.iter().map(|a| a.id).collect();
+    let _profiles = state
+        .profiling
+        .profile_assets_batch(&ids, &body.connector)
+        .await;
     let count = items.len();
     Ok(Json(AssetListResponse { items, count }))
 }
