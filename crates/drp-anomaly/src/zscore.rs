@@ -6,8 +6,8 @@ use serde_json::{json, Value};
 
 use drp_common::Result;
 use drp_core::{
-    AnomalyDetectorPlugin, AnomalyFinding, AnomalyReport, AnomalySeverity, Asset, Plugin,
-    PluginCapability, PluginContext, PluginInfo,
+    AnomalyDetectorPlugin, AnomalyFinding, AnomalyKind, AnomalyReport, AnomalySeverity, Asset,
+    Plugin, PluginCapability, PluginContext, PluginInfo,
 };
 
 /// Flags numeric values more than `k` standard deviations from the mean.
@@ -98,6 +98,7 @@ impl AnomalyDetectorPlugin for ZScoreDetector {
                 evidence.insert("max_abs_z".into(), json!(max_abs_z));
                 report.findings.push(AnomalyFinding {
                     detector: self.info.id.clone(),
+                    kind: AnomalyKind::Other,
                     field: Some(col.clone()),
                     message: format!(
                         "column '{col}' has {outliers} value(s) beyond {k}σ (max |z|={max_abs_z:.2})"

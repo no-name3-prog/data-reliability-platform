@@ -6,9 +6,10 @@ use async_trait::async_trait;
 use parking_lot::RwLock;
 
 use crate::traits::Store;
-use drp_common::{AssetId, CheckId, JobId, Result, RunId};
+use drp_common::{AssetId, CheckId, IncidentId, JobId, Result, RunId};
 use drp_core::{
-    Asset, CheckDefinition, CheckResult, DatasetProfile, JobDefinition, JobRun, ValidationRun,
+    AnomalyReport, Asset, CheckDefinition, CheckResult, DatasetProfile, Incident, JobDefinition,
+    JobRun, ValidationRun,
 };
 
 /// Thread-safe in-memory implementation of [`Store`].
@@ -22,6 +23,10 @@ pub struct MemoryStore {
     validation_runs_order: RwLock<Vec<RunId>>,
     /// Profile history per asset (oldest first).
     profiles: RwLock<HashMap<AssetId, Vec<DatasetProfile>>>,
+    anomaly_reports: RwLock<HashMap<RunId, AnomalyReport>>,
+    anomaly_reports_by_asset: RwLock<HashMap<AssetId, Vec<RunId>>>,
+    incidents: RwLock<HashMap<IncidentId, Incident>>,
+    incidents_order: RwLock<Vec<IncidentId>>,
     jobs: RwLock<HashMap<JobId, JobDefinition>>,
     job_runs: RwLock<HashMap<RunId, JobRun>>,
     job_runs_by_job: RwLock<HashMap<JobId, Vec<RunId>>>,
@@ -195,6 +200,76 @@ impl Store for MemoryStore {
             .read()
             .get(asset_id)
             .and_then(|v| v.iter().find(|p| p.run_id == *run_id).cloned()))
+    }
+
+    async fn save_anomaly_report(&self, report: AnomalyReport) -> Result<AnomalyReport> {
+        self.anomaly_reports_by_asset
+            .write()
+            .entry(report.asset_id)
+            .or_default()
+            .push(report.run_id);
+        self.anomaly_reports
+            .write()
+            .insert(report.run_id, report.clone());
+        Ok(report)
+    }
+
+    async fn get_anomaly_report(&self, run_id: &RunId) -> Result<Option<AnomalyReport>> {
+        Ok(self.anomaly_reports.read().get(run_id).cloned())
+    }
+
+    async fn list_anomaly_reports(
+        &self,
+        asset_id: &AssetId,
+        limit: Option<usize>,
+    ) -> Result<Vec<AnomalyReport>> {
+        let ids = self
+            .anomaly_reports_by_asset
+            .read()
+            .get(asset_id)
+            .cloned()
+            .unwrap_or_default();
+        let map = self.anomaly_reports.read();
+        let mut items: Vec<_> = ids
+            .into_iter()
+            .rev()
+            .filter_map(|id| map.get(&id).cloned())
+            .collect();
+        if let Some(n) = limit {
+            items.truncate(n);
+        }
+        Ok(items)
+    }
+
+    async fn save_incident(&self, incident: Incident) -> Result<Incident> {
+        if !self.incidents.read().contains_key(&incident.id) {
+            self.incidents_order.write().push(incident.id);
+        }
+        self.incidents.write().insert(incident.id, incident.clone());
+        Ok(incident)
+    }
+
+    async fn get_incident(&self, id: &IncidentId) -> Result<Option<Incident>> {
+        Ok(self.incidents.read().get(id).cloned())
+    }
+
+    async fn list_incidents(
+        &self,
+        asset_id: Option<&AssetId>,
+        limit: Option<usize>,
+    ) -> Result<Vec<Incident>> {
+        let order = self.incidents_order.read().clone();
+        let map = self.incidents.read();
+        let mut items: Vec<_> = order
+            .into_iter()
+            .rev()
+            .filter_map(|id| map.get(&id).cloned())
+            .filter(|i| asset_id.map(|a| i.asset_id == *a).unwrap_or(true))
+            .collect();
+        if let Some(n) = limit {
+            items.truncate(n);
+        }
+        Ok(items)
     }
 
     async fn upsert_job(&self, job: JobDefinition) -> Result<JobDefinition> {

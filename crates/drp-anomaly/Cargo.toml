@@ -1,6 +1,6 @@
 [package]
 name = "drp-anomaly"
-description = "Anomaly detector plugins for the Data Reliability Platform"
+description = "Anomaly detector plugins and profile-history engine"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -14,6 +14,7 @@ drp-common.workspace = true
 drp-core.workspace = true
 drp-storage.workspace = true
 async-trait.workspace = true
+chrono.workspace = true
 indexmap.workspace = true
 serde = { workspace = true }
 serde_json.workspace = true

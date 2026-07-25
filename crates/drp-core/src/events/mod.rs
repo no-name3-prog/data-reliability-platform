@@ -8,7 +8,7 @@ use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use tracing::{debug, warn};
 
-use drp_common::{AssetId, CheckId, JobId, RunId, ValidationStatus};
+use drp_common::{AssetId, CheckId, IncidentId, JobId, RunId, ValidationStatus};
 
 /// Platform-wide domain events.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -43,6 +43,22 @@ pub enum PlatformEvent {
         asset_id: Option<AssetId>,
         /// Aggregate status string (passed / warned / failed / error).
         status: String,
+    },
+    /// Anomaly analysis finished for an asset.
+    AnomalyReportCompleted {
+        /// Asset id.
+        asset_id: AssetId,
+        /// Report run id.
+        run_id: RunId,
+        /// Number of findings.
+        finding_count: usize,
+    },
+    /// A new incident was opened from anomaly findings.
+    IncidentOpened {
+        /// Incident id.
+        incident_id: IncidentId,
+        /// Asset id.
+        asset_id: AssetId,
     },
     /// A job run finished.
     JobCompleted {

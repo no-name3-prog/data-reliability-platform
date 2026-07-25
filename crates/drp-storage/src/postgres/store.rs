@@ -5,9 +5,10 @@ use sqlx::postgres::PgPoolOptions;
 use sqlx::{PgPool, Row};
 use tracing::info;
 
-use drp_common::{AssetId, CheckId, Error, JobId, Result, RunId};
+use drp_common::{AssetId, CheckId, Error, IncidentId, JobId, Result, RunId};
 use drp_core::{
-    Asset, CheckDefinition, CheckResult, DatasetProfile, JobDefinition, JobRun, ValidationRun,
+    AnomalyReport, Asset, CheckDefinition, CheckResult, DatasetProfile, Incident, JobDefinition,
+    JobRun, ValidationRun,
 };
 
 use crate::traits::Store;
@@ -87,6 +88,21 @@ impl PostgresStore {
             CREATE INDEX IF NOT EXISTS idx_job_runs_job ON job_runs(job_id);
             CREATE INDEX IF NOT EXISTS idx_profile_history_asset ON profile_history(asset_id);
             CREATE INDEX IF NOT EXISTS idx_validation_runs_asset ON validation_runs(asset_id);
+            CREATE TABLE IF NOT EXISTS anomaly_reports (
+                run_id TEXT PRIMARY KEY,
+                asset_id TEXT NOT NULL,
+                payload JSONB NOT NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
+            CREATE TABLE IF NOT EXISTS incidents (
+                id TEXT PRIMARY KEY,
+                asset_id TEXT NOT NULL,
+                payload JSONB NOT NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
+            CREATE INDEX IF NOT EXISTS idx_anomaly_reports_asset ON anomaly_reports(asset_id);
+            CREATE INDEX IF NOT EXISTS idx_incidents_asset ON incidents(asset_id);
             "#,
         )
         .execute(&self.pool)
@@ -464,6 +480,152 @@ impl Store for PostgresStore {
             ),
             None => None,
         })
+    }
+
+    async fn save_anomaly_report(&self, report: AnomalyReport) -> Result<AnomalyReport> {
+        let payload = serde_json::to_value(&report).map_err(|e| Error::storage(e.to_string()))?;
+        sqlx::query(
+            r#"
+            INSERT INTO anomaly_reports (run_id, asset_id, payload)
+            VALUES ($1, $2, $3)
+            ON CONFLICT (run_id) DO UPDATE SET payload = EXCLUDED.payload
+            "#,
+        )
+        .bind(report.run_id.to_string())
+        .bind(report.asset_id.to_string())
+        .bind(payload)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| Error::storage(e.to_string()))?;
+        Ok(report)
+    }
+
+    async fn get_anomaly_report(&self, run_id: &RunId) -> Result<Option<AnomalyReport>> {
+        let row = sqlx::query("SELECT payload FROM anomaly_reports WHERE run_id = $1")
+            .bind(run_id.to_string())
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(|e| Error::storage(e.to_string()))?;
+        Ok(match row {
+            Some(r) => Some(
+                serde_json::from_value(
+                    r.try_get("payload")
+                        .map_err(|e| Error::storage(e.to_string()))?,
+                )
+                .map_err(|e| Error::storage(e.to_string()))?,
+            ),
+            None => None,
+        })
+    }
+
+    async fn list_anomaly_reports(
+        &self,
+        asset_id: &AssetId,
+        limit: Option<usize>,
+    ) -> Result<Vec<AnomalyReport>> {
+        let lim = limit.unwrap_or(50) as i64;
+        let rows = sqlx::query(
+            r#"
+            SELECT payload FROM anomaly_reports
+            WHERE asset_id = $1
+            ORDER BY created_at DESC
+            LIMIT $2
+            "#,
+        )
+        .bind(asset_id.to_string())
+        .bind(lim)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| Error::storage(e.to_string()))?;
+        rows.into_iter()
+            .map(|r| {
+                serde_json::from_value(
+                    r.try_get("payload")
+                        .map_err(|e| Error::storage(e.to_string()))?,
+                )
+                .map_err(|e| Error::storage(e.to_string()))
+            })
+            .collect()
+    }
+
+    async fn save_incident(&self, incident: Incident) -> Result<Incident> {
+        let payload = serde_json::to_value(&incident).map_err(|e| Error::storage(e.to_string()))?;
+        sqlx::query(
+            r#"
+            INSERT INTO incidents (id, asset_id, payload)
+            VALUES ($1, $2, $3)
+            ON CONFLICT (id) DO UPDATE SET payload = EXCLUDED.payload, updated_at = NOW()
+            "#,
+        )
+        .bind(incident.id.to_string())
+        .bind(incident.asset_id.to_string())
+        .bind(payload)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| Error::storage(e.to_string()))?;
+        Ok(incident)
+    }
+
+    async fn get_incident(&self, id: &IncidentId) -> Result<Option<Incident>> {
+        let row = sqlx::query("SELECT payload FROM incidents WHERE id = $1")
+            .bind(id.to_string())
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(|e| Error::storage(e.to_string()))?;
+        Ok(match row {
+            Some(r) => Some(
+                serde_json::from_value(
+                    r.try_get("payload")
+                        .map_err(|e| Error::storage(e.to_string()))?,
+                )
+                .map_err(|e| Error::storage(e.to_string()))?,
+            ),
+            None => None,
+        })
+    }
+
+    async fn list_incidents(
+        &self,
+        asset_id: Option<&AssetId>,
+        limit: Option<usize>,
+    ) -> Result<Vec<Incident>> {
+        let lim = limit.unwrap_or(100) as i64;
+        let rows = if let Some(aid) = asset_id {
+            sqlx::query(
+                r#"
+                SELECT payload FROM incidents
+                WHERE asset_id = $1
+                ORDER BY created_at DESC
+                LIMIT $2
+                "#,
+            )
+            .bind(aid.to_string())
+            .bind(lim)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(|e| Error::storage(e.to_string()))?
+        } else {
+            sqlx::query(
+                r#"
+                SELECT payload FROM incidents
+                ORDER BY created_at DESC
+                LIMIT $1
+                "#,
+            )
+            .bind(lim)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(|e| Error::storage(e.to_string()))?
+        };
+        rows.into_iter()
+            .map(|r| {
+                serde_json::from_value(
+                    r.try_get("payload")
+                        .map_err(|e| Error::storage(e.to_string()))?,
+                )
+                .map_err(|e| Error::storage(e.to_string()))
+            })
+            .collect()
     }
 
     async fn upsert_job(&self, job: JobDefinition) -> Result<JobDefinition> {

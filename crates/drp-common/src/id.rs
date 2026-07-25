@@ -71,6 +71,8 @@ typed_id!(/// Identifier for a tenant / workspace.
     TenantId);
 typed_id!(/// Identifier for a registered plugin instance.
     PluginId);
+typed_id!(/// Identifier for an anomaly incident.
+    IncidentId);
 
 #[cfg(test)]
 mod tests {
