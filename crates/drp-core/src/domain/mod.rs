@@ -21,7 +21,10 @@ pub use asset::{Asset, ColumnMeta};
 pub use catalog::{map_sql_type, CatalogDatabase, CatalogSchema, CatalogTable, CatalogTree};
 pub use check::{CheckDefinition, CheckResult, ValidationRun, ValidationRunStatus};
 pub use job::{JobDefinition, JobRun, JobStatus};
-pub use lineage::{LineageEdge, LineageNode};
+pub use lineage::{
+    ColumnLineageEdge, ColumnRef, ImpactReport, ImpactTrigger, ImpactedAsset, LineageEdge,
+    LineageEdgeKind, LineageNode, LineageNodeKind, LineageSubgraphMeta,
+};
 pub use profile::{
     ColumnProfile, ColumnProfileDiff, DatasetProfile, HistogramBin, ProfileDiff, SemanticType,
 };

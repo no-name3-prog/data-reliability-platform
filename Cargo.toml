@@ -95,6 +95,7 @@ rusqlite = { version = "0.32", features = ["bundled"] }
 sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "sqlite", "postgres", "chrono", "uuid", "macros"] }
 
 petgraph = "0.7"
+sqlparser = { version = "0.52", features = ["visitor"] }
 
 clap = { version = "4", features = ["derive", "env", "color", "wrap_help"] }
 
