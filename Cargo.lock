@@ -752,6 +752,7 @@ name = "drp-anomaly"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "chrono",
  "drp-common",
  "drp-connectors",
  "drp-core",

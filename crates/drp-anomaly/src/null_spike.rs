@@ -6,8 +6,8 @@ use serde_json::{json, Value};
 
 use drp_common::Result;
 use drp_core::{
-    AnomalyDetectorPlugin, AnomalyFinding, AnomalyReport, AnomalySeverity, Asset, Plugin,
-    PluginCapability, PluginContext, PluginInfo,
+    AnomalyDetectorPlugin, AnomalyFinding, AnomalyKind, AnomalyReport, AnomalySeverity, Asset,
+    Plugin, PluginCapability, PluginContext, PluginInfo,
 };
 
 /// Detects high null ratios on sampled columns.
@@ -87,6 +87,7 @@ impl AnomalyDetectorPlugin for NullSpikeDetector {
                 evidence.insert("threshold".into(), json!(threshold));
                 report.findings.push(AnomalyFinding {
                     detector: self.info.id.clone(),
+                    kind: AnomalyKind::NullSpike,
                     field: Some(col.clone()),
                     message: format!(
                         "column '{col}' null ratio {ratio:.2} exceeds threshold {threshold:.2}"

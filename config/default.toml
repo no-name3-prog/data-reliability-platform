@@ -38,6 +38,15 @@ default_severity = "error"
 [lineage]
 max_depth = 20
 
+[anomaly]
+history_window = 10
+row_count_drop_ratio = 0.3
+null_spike_delta = 10.0
+duplicate_unique_ratio_drop = 0.2
+distribution_zscore = 3.0
+freshness_max_age_secs = 86400
+create_incidents = true
+
 [infra]
 # These hostnames resolve only inside the Docker Compose network.
 database_url = "postgres://drp:drp@postgres:5432/drp"

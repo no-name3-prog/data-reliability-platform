@@ -15,9 +15,9 @@ pub mod id;
 pub mod time;
 pub mod types;
 
-pub use config::{AppConfig, ConfigError};
+pub use config::{AnomalyConfig, AppConfig, ConfigError};
 pub use error::{Error, Result};
-pub use id::{AssetId, CheckId, DatasetId, JobId, PluginId, RunId, TenantId};
+pub use id::{AssetId, CheckId, DatasetId, IncidentId, JobId, PluginId, RunId, TenantId};
 pub use time::UtcTimestamp;
 pub use types::{
     AssetKind, AssetRef, DataType, HealthStatus, Severity, SourceLocation, ValidationStatus,

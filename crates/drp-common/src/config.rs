@@ -34,6 +34,9 @@ pub struct AppConfig {
     pub validation: ValidationConfig,
     /// Lineage defaults.
     pub lineage: LineageConfig,
+    /// Anomaly detection defaults.
+    #[serde(default)]
+    pub anomaly: AnomalyConfig,
     /// Infra connection strings (provided by compose in containers).
     pub infra: InfraConfig,
 }
@@ -132,6 +135,39 @@ pub struct LineageConfig {
     pub max_depth: u32,
 }
 
+/// Anomaly / profile-drift defaults.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AnomalyConfig {
+    /// How many historical profiles (excluding latest) to consider.
+    pub history_window: usize,
+    /// Flag when row_count drops by at least this fraction of baseline (e.g. 0.3 = 30%).
+    pub row_count_drop_ratio: f64,
+    /// Flag when null_percentage rises by at least this many points vs baseline.
+    pub null_spike_delta: f64,
+    /// Flag when unique_ratio drops by at least this absolute amount (0–1 scale).
+    pub duplicate_unique_ratio_drop: f64,
+    /// Flag distribution when |mean delta| / max(stddev, eps) exceeds this z-like threshold.
+    pub distribution_zscore: f64,
+    /// Max age in seconds of the latest profile before freshness incidents fire.
+    pub freshness_max_age_secs: u64,
+    /// When true, open an incident for each finding.
+    pub create_incidents: bool,
+}
+
+impl Default for AnomalyConfig {
+    fn default() -> Self {
+        Self {
+            history_window: 10,
+            row_count_drop_ratio: 0.3,
+            null_spike_delta: 10.0,
+            duplicate_unique_ratio_drop: 0.2,
+            distribution_zscore: 3.0,
+            freshness_max_age_secs: 86_400,
+            create_incidents: true,
+        }
+    }
+}
+
 /// External infrastructure URLs (compose service DNS names in containers).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InfraConfig {
@@ -189,6 +225,7 @@ impl Default for AppConfig {
                 default_severity: "error".into(),
             },
             lineage: LineageConfig { max_depth: 20 },
+            anomaly: AnomalyConfig::default(),
             infra: InfraConfig {
                 database_url: "postgres://drp:drp@postgres:5432/drp".into(),
                 redis_url: "redis://redis:6379".into(),

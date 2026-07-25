@@ -14,7 +14,9 @@ mod lineage;
 mod profile;
 
 pub use ai::{AiMessage, AiRequest, AiResponse, AiRole};
-pub use anomaly::{AnomalyFinding, AnomalyReport, AnomalySeverity};
+pub use anomaly::{
+    AnomalyFinding, AnomalyKind, AnomalyReport, AnomalySeverity, Incident, IncidentStatus,
+};
 pub use asset::{Asset, ColumnMeta};
 pub use catalog::{map_sql_type, CatalogDatabase, CatalogSchema, CatalogTable, CatalogTree};
 pub use check::{CheckDefinition, CheckResult, ValidationRun, ValidationRunStatus};

@@ -2,9 +2,10 @@
 
 use async_trait::async_trait;
 
-use drp_common::{AssetId, CheckId, JobId, Result, RunId};
+use drp_common::{AssetId, CheckId, IncidentId, JobId, Result, RunId};
 use drp_core::{
-    Asset, CheckDefinition, CheckResult, DatasetProfile, JobDefinition, JobRun, ValidationRun,
+    AnomalyReport, Asset, CheckDefinition, CheckResult, DatasetProfile, Incident, JobDefinition,
+    JobRun, ValidationRun,
 };
 
 /// Persistence interface used by all feature crates.
@@ -60,6 +61,27 @@ pub trait Store: Send + Sync {
         asset_id: &AssetId,
         run_id: &RunId,
     ) -> Result<Option<DatasetProfile>>;
+
+    /// Append an anomaly report.
+    async fn save_anomaly_report(&self, report: AnomalyReport) -> Result<AnomalyReport>;
+    /// Get an anomaly report by run id.
+    async fn get_anomaly_report(&self, run_id: &RunId) -> Result<Option<AnomalyReport>>;
+    /// List anomaly reports for an asset (newest first).
+    async fn list_anomaly_reports(
+        &self,
+        asset_id: &AssetId,
+        limit: Option<usize>,
+    ) -> Result<Vec<AnomalyReport>>;
+    /// Persist an incident.
+    async fn save_incident(&self, incident: Incident) -> Result<Incident>;
+    /// Get an incident by id.
+    async fn get_incident(&self, id: &IncidentId) -> Result<Option<Incident>>;
+    /// List incidents, optionally filtered by asset (newest first).
+    async fn list_incidents(
+        &self,
+        asset_id: Option<&AssetId>,
+        limit: Option<usize>,
+    ) -> Result<Vec<Incident>>;
     /// Upsert a job definition.
     async fn upsert_job(&self, job: JobDefinition) -> Result<JobDefinition>;
     /// Get a job by id.

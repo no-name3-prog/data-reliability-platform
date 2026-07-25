@@ -91,7 +91,7 @@ pub async fn build_app(config: AppConfig) -> drp_common::Result<AppState> {
     let lineage = LineageService::new(platform.config.lineage.max_depth);
     let scheduler = SchedulerService::new(
         store.clone(),
-        events,
+        events.clone(),
         platform.config.scheduler.max_concurrent_jobs,
     );
     // Register validation suite runner for scheduled jobs (kind = "validation").
@@ -108,7 +108,9 @@ pub async fn build_app(config: AppConfig) -> drp_common::Result<AppState> {
     let anomaly = AnomalyService::new(
         store.clone(),
         plugins.clone(),
+        events,
         platform.config.profiling.sample_size,
+        platform.config.anomaly.clone(),
     );
     let ai = AiService::new(plugins);
 
