@@ -21,8 +21,9 @@ pub mod plugin;
 pub use domain::{
     map_sql_type, AiMessage, AiRequest, AiResponse, AiRole, AnomalyFinding, AnomalyReport,
     AnomalySeverity, Asset, CatalogDatabase, CatalogSchema, CatalogTable, CatalogTree,
-    CheckDefinition, CheckResult, ColumnMeta, ColumnProfile, DatasetProfile, JobDefinition, JobRun,
-    JobStatus, LineageEdge, LineageNode,
+    CheckDefinition, CheckResult, ColumnMeta, ColumnProfile, ColumnProfileDiff, DatasetProfile,
+    HistogramBin, JobDefinition, JobRun, JobStatus, LineageEdge, LineageNode, ProfileDiff,
+    SemanticType,
 };
 pub use events::{EventBus, PlatformEvent};
 pub use logging::init_tracing;

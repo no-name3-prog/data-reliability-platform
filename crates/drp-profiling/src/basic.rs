@@ -1,4 +1,4 @@
-//! Basic statistical profiler plugin.
+//! Full statistical profiler: null%, unique values, min/max/avg, histograms, semantic types.
 
 use std::collections::HashSet;
 
@@ -9,20 +9,28 @@ use serde_json::{json, Value};
 use drp_common::{DataType, Result, RunId, UtcTimestamp};
 use drp_core::{
     Asset, ColumnProfile, DatasetProfile, Plugin, PluginCapability, PluginContext, PluginInfo,
-    ProfilerPlugin,
+    ProfilerPlugin, SemanticType,
 };
 
-/// Default column-stats profiler.
+use crate::semantic::{semantic_from_physical, value_as_str};
+use crate::stats::{
+    as_f64, categorical_histogram, default_bins, insert_numeric_stats, numeric_histogram,
+    numeric_summary, top_categories,
+};
+
+/// Default column-stats profiler with semantic typing and histograms.
 pub struct BasicProfiler {
     info: PluginInfo,
 }
 
 impl BasicProfiler {
-    /// Create the built-in basic profiler.
+    /// Create the built-in statistical profiler.
     pub fn new() -> Self {
         Self {
-            info: PluginInfo::new("basic", "Basic Profiler", env!("CARGO_PKG_VERSION"))
-                .with_description("Null counts, distinct counts, and simple numeric stats")
+            info: PluginInfo::new("basic", "Statistical Profiler", env!("CARGO_PKG_VERSION"))
+                .with_description(
+                    "Row count, null%, unique values, min/max/avg, histograms, semantic types",
+                )
                 .with_capability(PluginCapability::Profiler),
         }
     }
@@ -50,7 +58,11 @@ impl ProfilerPlugin for BasicProfiler {
     ) -> Result<DatasetProfile> {
         let col_names: Vec<(String, DataType)> = if asset.columns.is_empty() {
             rows.first()
-                .map(|r| r.keys().map(|k| (k.clone(), infer_type(rows, k))).collect())
+                .map(|r| {
+                    r.keys()
+                        .map(|k| (k.clone(), infer_physical_type(rows, k)))
+                        .collect()
+                })
                 .unwrap_or_default()
         } else {
             asset
@@ -60,52 +72,100 @@ impl ProfilerPlugin for BasicProfiler {
                 .collect()
         };
 
+        let row_count = rows.len() as u64;
         let mut column_profiles = Vec::with_capacity(col_names.len());
+
         for (name, data_type) in col_names {
             let mut null_count = 0u64;
             let mut distinct = HashSet::new();
-            let mut min_num: Option<f64> = None;
-            let mut max_num: Option<f64> = None;
-            let mut sum = 0.0f64;
-            let mut numeric_n = 0u64;
+            let mut nums: Vec<f64> = Vec::new();
+            let mut strings: Vec<String> = Vec::new();
 
             for row in rows {
                 match row.get(&name) {
                     None | Some(Value::Null) => null_count += 1,
                     Some(v) => {
-                        distinct.insert(v.to_string());
+                        distinct.insert(canonical_key(v));
                         if let Some(n) = as_f64(v) {
-                            min_num = Some(min_num.map_or(n, |m| m.min(n)));
-                            max_num = Some(max_num.map_or(n, |m| m.max(n)));
-                            sum += n;
-                            numeric_n += 1;
+                            nums.push(n);
+                        }
+                        if let Some(s) = value_as_str(v) {
+                            strings.push(s.to_string());
                         }
                     }
                 }
             }
 
-            let mut stats = IndexMap::new();
-            if let Some(min) = min_num {
-                stats.insert("min".into(), json!(min));
-            }
-            if let Some(max) = max_num {
-                stats.insert("max".into(), json!(max));
-            }
-            if numeric_n > 0 {
-                stats.insert("mean".into(), json!(sum / numeric_n as f64));
-            }
-            let null_ratio = if rows.is_empty() {
+            let str_samples: Vec<&str> = strings.iter().map(|s| s.as_str()).collect();
+
+            let non_null = row_count.saturating_sub(null_count);
+            let null_percentage = if row_count == 0 {
                 0.0
             } else {
-                null_count as f64 / rows.len() as f64
+                (null_count as f64 / row_count as f64) * 100.0
             };
-            stats.insert("null_ratio".into(), json!(null_ratio));
+            let unique_ratio = if non_null == 0 {
+                0.0
+            } else {
+                distinct.len() as f64 / non_null as f64
+            };
+
+            let summary = numeric_summary(&nums);
+            let (semantic_type, semantic_confidence) =
+                semantic_from_physical(data_type, distinct.len() as u64, non_null, &str_samples);
+
+            let histogram = if !nums.is_empty()
+                && matches!(
+                    data_type,
+                    DataType::Integer | DataType::Float | DataType::Unknown
+                )
+                && semantic_type != SemanticType::Category
+            {
+                numeric_histogram(&nums, default_bins())
+            } else if !strings.is_empty() {
+                categorical_histogram(&strings, top_categories())
+            } else {
+                Vec::new()
+            };
+
+            let mut stats = IndexMap::new();
+            insert_numeric_stats(&mut stats, &summary);
+            stats.insert("null_ratio".into(), json!(null_percentage / 100.0));
+            stats.insert("null_percentage".into(), json!(null_percentage));
+            stats.insert("unique_ratio".into(), json!(unique_ratio));
+            stats.insert("non_null_count".into(), json!(non_null));
+            stats.insert(
+                "semantic_type".into(),
+                json!(format!("{semantic_type:?}").to_ascii_lowercase()),
+            );
+
+            let (min, max) = if summary.min.is_some() {
+                (summary.min.map(|v| json!(v)), summary.max.map(|v| json!(v)))
+            } else if !strings.is_empty() {
+                let mut sorted = strings.clone();
+                sorted.sort();
+                (
+                    sorted.first().map(|s| json!(s)),
+                    sorted.last().map(|s| json!(s)),
+                )
+            } else {
+                (None, None)
+            };
 
             column_profiles.push(ColumnProfile {
                 name,
                 data_type,
+                semantic_type,
+                semantic_confidence,
                 null_count,
+                null_percentage,
                 distinct_count: distinct.len() as u64,
+                unique_ratio,
+                min,
+                max,
+                average: summary.mean,
+                stddev: summary.stddev,
+                histogram,
                 stats,
             });
         }
@@ -113,22 +173,25 @@ impl ProfilerPlugin for BasicProfiler {
         Ok(DatasetProfile {
             run_id: RunId::new(),
             asset_id: asset.id,
-            row_count: rows.len() as u64,
+            asset_fqn: Some(asset.fqn.clone()),
+            profiler: Some(self.info.id.clone()),
+            connector: Some(asset.location.connector.clone()),
+            sample_size: Some(row_count),
+            row_count,
             columns: column_profiles,
             profiled_at: UtcTimestamp::now(),
         })
     }
 }
 
-fn as_f64(v: &Value) -> Option<f64> {
+fn canonical_key(v: &Value) -> String {
     match v {
-        Value::Number(n) => n.as_f64(),
-        Value::String(s) => s.parse().ok(),
-        _ => None,
+        Value::String(s) => s.clone(),
+        other => other.to_string(),
     }
 }
 
-fn infer_type(rows: &[IndexMap<String, Value>], col: &str) -> DataType {
+fn infer_physical_type(rows: &[IndexMap<String, Value>], col: &str) -> DataType {
     for row in rows {
         match row.get(col) {
             Some(Value::Bool(_)) => return DataType::Boolean,

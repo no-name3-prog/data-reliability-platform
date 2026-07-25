@@ -50,6 +50,14 @@ impl PostgresStore {
                 payload JSONB NOT NULL,
                 created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
             );
+            -- Append-only profile history (one row per profile run).
+            CREATE TABLE IF NOT EXISTS profile_history (
+                run_id TEXT PRIMARY KEY,
+                asset_id TEXT NOT NULL,
+                payload JSONB NOT NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
+            -- Legacy single-row profiles table (kept for older installs; unused by new code).
             CREATE TABLE IF NOT EXISTS profiles (
                 asset_id TEXT PRIMARY KEY,
                 payload JSONB NOT NULL,
@@ -68,6 +76,7 @@ impl PostgresStore {
             );
             CREATE INDEX IF NOT EXISTS idx_check_results_check ON check_results(check_id);
             CREATE INDEX IF NOT EXISTS idx_job_runs_job ON job_runs(job_id);
+            CREATE INDEX IF NOT EXISTS idx_profile_history_asset ON profile_history(asset_id);
             "#,
         )
         .execute(&self.pool)
@@ -269,11 +278,12 @@ impl Store for PostgresStore {
         let payload = serde_json::to_value(&profile).map_err(|e| Error::storage(e.to_string()))?;
         sqlx::query(
             r#"
-            INSERT INTO profiles (asset_id, payload)
-            VALUES ($1, $2)
-            ON CONFLICT (asset_id) DO UPDATE SET payload = EXCLUDED.payload, updated_at = NOW()
+            INSERT INTO profile_history (run_id, asset_id, payload)
+            VALUES ($1, $2, $3)
+            ON CONFLICT (run_id) DO UPDATE SET payload = EXCLUDED.payload
             "#,
         )
+        .bind(profile.run_id.to_string())
         .bind(profile.asset_id.to_string())
         .bind(payload)
         .execute(&self.pool)
@@ -283,11 +293,76 @@ impl Store for PostgresStore {
     }
 
     async fn latest_profile(&self, asset_id: &AssetId) -> Result<Option<DatasetProfile>> {
-        let row = sqlx::query("SELECT payload FROM profiles WHERE asset_id = $1")
-            .bind(asset_id.to_string())
-            .fetch_optional(&self.pool)
-            .await
-            .map_err(|e| Error::storage(e.to_string()))?;
+        let row = sqlx::query(
+            r#"
+            SELECT payload FROM profile_history
+            WHERE asset_id = $1
+            ORDER BY created_at DESC
+            LIMIT 1
+            "#,
+        )
+        .bind(asset_id.to_string())
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|e| Error::storage(e.to_string()))?;
+        Ok(match row {
+            Some(r) => Some(
+                serde_json::from_value(
+                    r.try_get("payload")
+                        .map_err(|e| Error::storage(e.to_string()))?,
+                )
+                .map_err(|e| Error::storage(e.to_string()))?,
+            ),
+            None => None,
+        })
+    }
+
+    async fn list_profile_history(
+        &self,
+        asset_id: &AssetId,
+        limit: Option<usize>,
+    ) -> Result<Vec<DatasetProfile>> {
+        let lim = limit.unwrap_or(100) as i64;
+        let rows = sqlx::query(
+            r#"
+            SELECT payload FROM profile_history
+            WHERE asset_id = $1
+            ORDER BY created_at DESC
+            LIMIT $2
+            "#,
+        )
+        .bind(asset_id.to_string())
+        .bind(lim)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| Error::storage(e.to_string()))?;
+        rows.into_iter()
+            .map(|r| {
+                serde_json::from_value(
+                    r.try_get("payload")
+                        .map_err(|e| Error::storage(e.to_string()))?,
+                )
+                .map_err(|e| Error::storage(e.to_string()))
+            })
+            .collect()
+    }
+
+    async fn get_profile_by_run(
+        &self,
+        asset_id: &AssetId,
+        run_id: &RunId,
+    ) -> Result<Option<DatasetProfile>> {
+        let row = sqlx::query(
+            r#"
+            SELECT payload FROM profile_history
+            WHERE asset_id = $1 AND run_id = $2
+            "#,
+        )
+        .bind(asset_id.to_string())
+        .bind(run_id.to_string())
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|e| Error::storage(e.to_string()))?;
         Ok(match row {
             Some(r) => Some(
                 serde_json::from_value(
