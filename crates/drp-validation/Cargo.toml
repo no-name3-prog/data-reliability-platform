@@ -13,7 +13,9 @@ readme.workspace = true
 drp-common.workspace = true
 drp-core.workspace = true
 drp-storage.workspace = true
+drp-scheduler.workspace = true
 async-trait.workspace = true
+chrono.workspace = true
 indexmap.workspace = true
 serde = { workspace = true }
 serde_json.workspace = true
@@ -23,4 +25,5 @@ regex.workspace = true
 
 [dev-dependencies]
 drp-connectors.workspace = true
+chrono.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }

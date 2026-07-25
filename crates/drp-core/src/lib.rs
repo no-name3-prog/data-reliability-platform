@@ -21,7 +21,7 @@ pub mod plugin;
 pub use domain::{
     AiMessage, AiRequest, AiResponse, AiRole, AnomalyFinding, AnomalyReport, AnomalySeverity,
     Asset, CheckDefinition, CheckResult, ColumnMeta, ColumnProfile, DatasetProfile, JobDefinition,
-    JobRun, JobStatus, LineageEdge, LineageNode,
+    JobRun, JobStatus, LineageEdge, LineageNode, ValidationRun, ValidationRunStatus,
 };
 pub use events::{EventBus, PlatformEvent};
 pub use logging::init_tracing;

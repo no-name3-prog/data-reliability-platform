@@ -81,7 +81,7 @@ make up           # api + prometheus + infra
 | `drp-connectors` | Connector plugins (`mock`) |
 | `drp-metadata` | Asset catalog |
 | `drp-profiling` | Profiling engine |
-| `drp-validation` | DQ checks |
+| `drp-validation` | Validation engine (rules, schedule, history) |
 | `drp-anomaly` | Anomaly detector plugins |
 | `drp-ai` | AI / LLM provider plugins |
 | `drp-lineage` | Lineage graph |
@@ -101,6 +101,7 @@ Connectors, validation rules, anomaly detectors, notifications, and AI providers
 
 | Doc | Purpose |
 |-----|---------|
+| [Validation](docs/validation.md) | Rules, schedule, result history |
 | [Plugin architecture](docs/plugin-architecture.md) | Traits, registry, dependency rules |
 | [Contributing plugins](docs/contributing-plugins.md) | Step-by-step for new plugins |
 | [Repository structure](docs/repository-structure.md) | Where code lives |

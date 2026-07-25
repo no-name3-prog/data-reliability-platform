@@ -15,7 +15,7 @@ mod profile;
 pub use ai::{AiMessage, AiRequest, AiResponse, AiRole};
 pub use anomaly::{AnomalyFinding, AnomalyReport, AnomalySeverity};
 pub use asset::{Asset, ColumnMeta};
-pub use check::{CheckDefinition, CheckResult};
+pub use check::{CheckDefinition, CheckResult, ValidationRun, ValidationRunStatus};
 pub use job::{JobDefinition, JobRun, JobStatus};
 pub use lineage::{LineageEdge, LineageNode};
 pub use profile::{ColumnProfile, DatasetProfile};
