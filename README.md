@@ -89,6 +89,12 @@ make up           # api + prometheus + infra
 | `drp-notifications` | Alerts |
 | `drp-api` | HTTP API + binary |
 
+## Contributing / branching
+
+Direct pushes to `main` are **blocked**. Use a feature branch + PR; **only the repo owner merges**.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) and [docs/branching-and-merging.md](docs/branching-and-merging.md).
+
 ## Plugin system
 
 Connectors, validation rules, anomaly detectors, notifications, and AI providers are **Rust traits** in `drp-core`. Implementations are separate crates registered only at the API composition root.
