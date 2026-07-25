@@ -84,7 +84,7 @@ make up           # api + prometheus + infra
 | `drp-validation` | Validation engine (rules, schedule, history) |
 | `drp-anomaly` | Anomaly engine (profile drift, incidents) |
 | `drp-ai` | AI / LLM provider plugins |
-| `drp-lineage` | Lineage graph |
+| `drp-lineage` | Lineage (SQL, column-level, impact) |
 | `drp-scheduler` | Jobs |
 | `drp-notifications` | Alerts |
 | `drp-api` | HTTP API + binary |
@@ -104,6 +104,7 @@ Connectors, validation rules, anomaly detectors, notifications, and AI providers
 | [Profiling](docs/profiling.md) | Stats, semantic types, history |
 | [Validation](docs/validation.md) | Rules, schedule, result history |
 | [Anomaly](docs/anomaly.md) | Profile drift, incidents |
+| [Lineage](docs/lineage.md) | SQL parse, column lineage, impact |
 | [Plugin architecture](docs/plugin-architecture.md) | Traits, registry, dependency rules |
 | [Contributing plugins](docs/contributing-plugins.md) | Step-by-step for new plugins |
 | [Repository structure](docs/repository-structure.md) | Where code lives |
