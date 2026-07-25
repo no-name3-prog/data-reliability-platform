@@ -3,7 +3,9 @@
 use async_trait::async_trait;
 
 use drp_common::{AssetId, CheckId, JobId, Result, RunId};
-use drp_core::{Asset, CheckDefinition, CheckResult, DatasetProfile, JobDefinition, JobRun};
+use drp_core::{
+    Asset, CheckDefinition, CheckResult, DatasetProfile, JobDefinition, JobRun, ValidationRun,
+};
 
 /// Persistence interface used by all feature crates.
 #[async_trait]
@@ -24,14 +26,24 @@ pub trait Store: Send + Sync {
     async fn get_check(&self, id: &CheckId) -> Result<Option<CheckDefinition>>;
     /// List checks, optionally filtered by asset.
     async fn list_checks(&self, asset_id: Option<&AssetId>) -> Result<Vec<CheckDefinition>>;
-    /// Persist a check result.
+    /// Persist a check result (appends history; never overwrites).
     async fn save_check_result(&self, result: CheckResult) -> Result<CheckResult>;
-    /// List recent check results for a check.
+    /// List recent check results for a check (newest first).
     async fn list_check_results(
         &self,
         check_id: &CheckId,
         limit: Option<usize>,
     ) -> Result<Vec<CheckResult>>;
+    /// Persist a validation suite run (appends history).
+    async fn save_validation_run(&self, run: ValidationRun) -> Result<ValidationRun>;
+    /// Fetch a suite run by id.
+    async fn get_validation_run(&self, id: &RunId) -> Result<Option<ValidationRun>>;
+    /// List suite runs, optionally filtered by asset (newest first).
+    async fn list_validation_runs(
+        &self,
+        asset_id: Option<&AssetId>,
+        limit: Option<usize>,
+    ) -> Result<Vec<ValidationRun>>;
     /// Append a dataset profile to history (does not overwrite previous runs).
     async fn save_profile(&self, profile: DatasetProfile) -> Result<DatasetProfile>;
     /// Latest profile for an asset.

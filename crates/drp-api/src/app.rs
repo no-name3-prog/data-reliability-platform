@@ -26,7 +26,7 @@ use drp_notifications::{register_builtin_notifiers, NotificationService};
 use drp_profiling::{register_builtin_profilers, ProfilingService};
 use drp_scheduler::SchedulerService;
 use drp_storage::open_store;
-use drp_validation::{register_builtin_validators, ValidationService};
+use drp_validation::{register_builtin_validators, ValidationJobHandler, ValidationService};
 
 use crate::metrics::{self, track_http_metrics};
 use crate::routes;
@@ -94,6 +94,12 @@ pub async fn build_app(config: AppConfig) -> drp_common::Result<AppState> {
         events,
         platform.config.scheduler.max_concurrent_jobs,
     );
+    // Register validation suite runner for scheduled jobs (kind = "validation").
+    scheduler
+        .handlers()
+        .register(std::sync::Arc::new(ValidationJobHandler::new(
+            validation.clone(),
+        )));
     let notifications = NotificationService::new(
         plugins.clone(),
         platform.config.notifications.default_channels.clone(),

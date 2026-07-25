@@ -7,7 +7,9 @@ use parking_lot::RwLock;
 
 use crate::traits::Store;
 use drp_common::{AssetId, CheckId, JobId, Result, RunId};
-use drp_core::{Asset, CheckDefinition, CheckResult, DatasetProfile, JobDefinition, JobRun};
+use drp_core::{
+    Asset, CheckDefinition, CheckResult, DatasetProfile, JobDefinition, JobRun, ValidationRun,
+};
 
 /// Thread-safe in-memory implementation of [`Store`].
 #[derive(Debug, Default)]
@@ -16,6 +18,8 @@ pub struct MemoryStore {
     assets_by_fqn: RwLock<HashMap<String, AssetId>>,
     checks: RwLock<HashMap<CheckId, CheckDefinition>>,
     check_results: RwLock<HashMap<CheckId, Vec<CheckResult>>>,
+    validation_runs: RwLock<HashMap<RunId, ValidationRun>>,
+    validation_runs_order: RwLock<Vec<RunId>>,
     /// Profile history per asset (oldest first).
     profiles: RwLock<HashMap<AssetId, Vec<DatasetProfile>>>,
     jobs: RwLock<HashMap<JobId, JobDefinition>>,
@@ -107,6 +111,39 @@ impl Store for MemoryStore {
             .cloned()
             .unwrap_or_default();
         items.reverse();
+        if let Some(n) = limit {
+            items.truncate(n);
+        }
+        Ok(items)
+    }
+
+    async fn save_validation_run(&self, run: ValidationRun) -> Result<ValidationRun> {
+        self.validation_runs_order.write().push(run.id);
+        self.validation_runs.write().insert(run.id, run.clone());
+        Ok(run)
+    }
+
+    async fn get_validation_run(&self, id: &RunId) -> Result<Option<ValidationRun>> {
+        Ok(self.validation_runs.read().get(id).cloned())
+    }
+
+    async fn list_validation_runs(
+        &self,
+        asset_id: Option<&AssetId>,
+        limit: Option<usize>,
+    ) -> Result<Vec<ValidationRun>> {
+        let order = self.validation_runs_order.read().clone();
+        let map = self.validation_runs.read();
+        let mut items: Vec<_> = order
+            .into_iter()
+            .rev()
+            .filter_map(|id| map.get(&id).cloned())
+            .filter(|r| {
+                asset_id
+                    .map(|aid| r.asset_id.as_ref() == Some(aid))
+                    .unwrap_or(true)
+            })
+            .collect();
         if let Some(n) = limit {
             items.truncate(n);
         }

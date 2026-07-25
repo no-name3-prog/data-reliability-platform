@@ -6,7 +6,9 @@ use sqlx::{PgPool, Row};
 use tracing::info;
 
 use drp_common::{AssetId, CheckId, Error, JobId, Result, RunId};
-use drp_core::{Asset, CheckDefinition, CheckResult, DatasetProfile, JobDefinition, JobRun};
+use drp_core::{
+    Asset, CheckDefinition, CheckResult, DatasetProfile, JobDefinition, JobRun, ValidationRun,
+};
 
 use crate::traits::Store;
 
@@ -50,6 +52,13 @@ impl PostgresStore {
                 payload JSONB NOT NULL,
                 created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
             );
+            -- Append-only validation suite runs.
+            CREATE TABLE IF NOT EXISTS validation_runs (
+                run_id TEXT PRIMARY KEY,
+                asset_id TEXT,
+                payload JSONB NOT NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
             -- Append-only profile history (one row per profile run).
             CREATE TABLE IF NOT EXISTS profile_history (
                 run_id TEXT PRIMARY KEY,
@@ -77,6 +86,7 @@ impl PostgresStore {
             CREATE INDEX IF NOT EXISTS idx_check_results_check ON check_results(check_id);
             CREATE INDEX IF NOT EXISTS idx_job_runs_job ON job_runs(job_id);
             CREATE INDEX IF NOT EXISTS idx_profile_history_asset ON profile_history(asset_id);
+            CREATE INDEX IF NOT EXISTS idx_validation_runs_asset ON validation_runs(asset_id);
             "#,
         )
         .execute(&self.pool)
@@ -263,6 +273,87 @@ impl Store for PostgresStore {
         .fetch_all(&self.pool)
         .await
         .map_err(|e| Error::storage(e.to_string()))?;
+        rows.into_iter()
+            .map(|r| {
+                serde_json::from_value(
+                    r.try_get("payload")
+                        .map_err(|e| Error::storage(e.to_string()))?,
+                )
+                .map_err(|e| Error::storage(e.to_string()))
+            })
+            .collect()
+    }
+
+    async fn save_validation_run(&self, run: ValidationRun) -> Result<ValidationRun> {
+        let payload = serde_json::to_value(&run).map_err(|e| Error::storage(e.to_string()))?;
+        let asset_id = run.asset_id.map(|id| id.to_string());
+        sqlx::query(
+            r#"
+            INSERT INTO validation_runs (run_id, asset_id, payload)
+            VALUES ($1, $2, $3)
+            ON CONFLICT (run_id) DO UPDATE SET payload = EXCLUDED.payload, asset_id = EXCLUDED.asset_id
+            "#,
+        )
+        .bind(run.id.to_string())
+        .bind(asset_id)
+        .bind(payload)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| Error::storage(e.to_string()))?;
+        Ok(run)
+    }
+
+    async fn get_validation_run(&self, id: &RunId) -> Result<Option<ValidationRun>> {
+        let row = sqlx::query("SELECT payload FROM validation_runs WHERE run_id = $1")
+            .bind(id.to_string())
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(|e| Error::storage(e.to_string()))?;
+        Ok(match row {
+            Some(r) => Some(
+                serde_json::from_value(
+                    r.try_get("payload")
+                        .map_err(|e| Error::storage(e.to_string()))?,
+                )
+                .map_err(|e| Error::storage(e.to_string()))?,
+            ),
+            None => None,
+        })
+    }
+
+    async fn list_validation_runs(
+        &self,
+        asset_id: Option<&AssetId>,
+        limit: Option<usize>,
+    ) -> Result<Vec<ValidationRun>> {
+        let lim = limit.unwrap_or(100) as i64;
+        let rows = if let Some(aid) = asset_id {
+            sqlx::query(
+                r#"
+                SELECT payload FROM validation_runs
+                WHERE asset_id = $1
+                ORDER BY created_at DESC
+                LIMIT $2
+                "#,
+            )
+            .bind(aid.to_string())
+            .bind(lim)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(|e| Error::storage(e.to_string()))?
+        } else {
+            sqlx::query(
+                r#"
+                SELECT payload FROM validation_runs
+                ORDER BY created_at DESC
+                LIMIT $1
+                "#,
+            )
+            .bind(lim)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(|e| Error::storage(e.to_string()))?
+        };
         rows.into_iter()
             .map(|r| {
                 serde_json::from_value(

@@ -23,7 +23,7 @@ pub use domain::{
     AnomalySeverity, Asset, CatalogDatabase, CatalogSchema, CatalogTable, CatalogTree,
     CheckDefinition, CheckResult, ColumnMeta, ColumnProfile, ColumnProfileDiff, DatasetProfile,
     HistogramBin, JobDefinition, JobRun, JobStatus, LineageEdge, LineageNode, ProfileDiff,
-    SemanticType,
+    SemanticType, ValidationRun, ValidationRunStatus,
 };
 pub use events::{EventBus, PlatformEvent};
 pub use logging::init_tracing;

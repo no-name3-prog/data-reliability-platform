@@ -35,6 +35,15 @@ pub enum PlatformEvent {
         /// Outcome.
         status: ValidationStatus,
     },
+    /// A validation suite (batch) finished.
+    ValidationRunCompleted {
+        /// Suite run id.
+        run_id: RunId,
+        /// Optional asset scope.
+        asset_id: Option<AssetId>,
+        /// Aggregate status string (passed / warned / failed / error).
+        status: String,
+    },
     /// A job run finished.
     JobCompleted {
         /// Job id.
