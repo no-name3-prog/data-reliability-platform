@@ -1,4 +1,15 @@
-# Profiling engine
+# Profiling
+
+## In plain English
+
+**Profiling** means: look at a dataset and compute simple facts —
+how many rows, how many nulls, min/max, common types (email, date, …).
+
+Each run is **saved in history** so you can compare “last week vs today”.
+
+Use the **Profiling** page in the dashboard, or the API under `/v1/assets/{id}/profile`.
+
+---
 
 ## Overview
 

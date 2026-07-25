@@ -1,4 +1,16 @@
-# Incident management
+# Incidents
+
+## In plain English
+
+An **incident** is a tracked problem: a failed check or an anomaly.
+It has **severity**, **status**, optional **owner**, **affected assets**, and a **timeline**.
+
+Alerts can go to **log**, **Slack**, **email**, or a **webhook**
+(empty URLs mean “only log” — good for local demos).
+
+Use the **Incidents** page in the dashboard, or the API under `/v1/incidents`.
+
+---
 
 ## Overview
 

@@ -1,6 +1,13 @@
 # Plugin architecture
 
-The Data Reliability Platform is built so **connectors**, **validation rules**, **anomaly detectors**, **notification providers**, and **AI providers** are independent plugins. You add them **without modifying the core engine**.
+## In plain English
+
+**Plugins** let you add new behavior (a new database type, a new quality rule, a new alert channel)
+without rewriting the core app.
+
+Think of it like USB ports: the core defines the shape of the plug; you build the device.
+
+---
 
 ## Goals
 

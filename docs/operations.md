@@ -1,5 +1,14 @@
 # Operations
 
+## In plain English
+
+This page is for people **running** the platform day to day:  
+how to check if it is healthy, where logs are, and how metrics work.
+
+For first-time setup, see [getting-started.md](getting-started.md).
+
+---
+
 ## Health checks
 
 Use readiness for load balancers and liveness for orchestrators:

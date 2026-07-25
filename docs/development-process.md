@@ -1,5 +1,14 @@
 # Development process
 
+## In plain English
+
+How we go from idea → code → pull request → merge.  
+Short version: branch off `main`, use Docker `make` commands, open a PR, wait for CI.
+
+See also [CONTRIBUTING.md](../CONTRIBUTING.md).
+
+---
+
 ## Principles
 
 1. **Container-first** — build, lint, test, docs run in Docker (`make *`).

@@ -1,4 +1,16 @@
-# Validation engine
+# Validation
+
+## In plain English
+
+**Validation** means: run quality **rules** on your data
+(for example “this column must not be empty” or “values must match a pattern”).
+
+You can run rules now or **on a schedule**. Every run is stored in **history**.
+Failed checks can open **incidents**.
+
+Use the **Validation** page in the dashboard, or the API under `/v1/checks`.
+
+---
 
 ## Overview
 

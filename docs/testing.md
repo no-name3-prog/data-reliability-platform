@@ -1,42 +1,56 @@
-# Testing infrastructure
+# Testing
 
-All tests run **inside Docker** via the `dev` toolchain image. Do not run
-`cargo test` / `cargo nextest` on the host.
+All automated tests run **inside Docker**.  
+Do **not** run `cargo test` on your laptop for this project.
 
-## Layers
+## Quick commands
 
-| Layer | What | How to run |
-|-------|------|------------|
-| **Unit** | Per-crate pure logic, mock connectors | `make test-unit` |
-| **Integration** | Multi-crate flows + HTTP (in-process axum) | `make test-integration` |
-| **Regression** | Golden fixtures / stable DQ expectations | `make test-regression` |
-| **Full CI suite** | nextest `--profile ci` | `make test` |
-| **Local CI mirror** | lint + all profiles + build + doc | `make verify` |
+| Command | What it does |
+|---------|----------------|
+| `make test` | Run the full test suite |
+| `make test-unit` | Fast unit tests |
+| `make test-integration` | Multi-part flow tests |
+| `make test-regression` | “Golden” expected results |
+| `make lint` | Style + safety checks |
+| `make verify` | Lint + all tests + build (like CI) |
 
-## Tooling
+## Before you open a PR
 
-- **cargo-nextest** `0.9.100` (pinned for rustc 1.85) installed in `docker/Dockerfile.dev`
-- Config: `.config/nextest.toml` (profiles: `unit`, `integration`, `regression`, `ci`)
-- Shared harness: `crates/drp-test-support`
-- Integration/regression package: `crates/drp-tests`
-- Fixtures: `crates/drp-tests/fixtures/`
+```bash
+make lint
+make test
+```
 
-## Mock connectors
+Or everything at once:
 
-| Plugin id | Type | Purpose |
-|-----------|------|---------|
-| `mock` | `MockConnector` | Fixed orders/users sample |
-| `fixture` | `FixtureConnector` | Configurable tables for tests |
-| `failing` | `FailingConnector` | Negative-path (register in test) |
+```bash
+make verify
+```
 
-## Naming conventions
+## Test layers (simple)
 
-- Integration tests live in `crates/drp-tests/tests/integration_*.rs`
-- Regression tests live in `crates/drp-tests/tests/regression_*.rs` and use function names containing `regression_`
-- Unit tests live in each crate’s `src/**` or `tests/` (package ≠ `drp-tests`)
+1. **Unit** — small pieces of code (one rule, one parser, …)
+2. **Integration** — several parts working together (discover → profile → validate)
+3. **Regression** — fixed sample data must keep the same quality outcomes
 
-## CI parity
+## Dummy data in tests
 
-GitHub Actions (`.github/workflows/ci.yml`) runs the same Make targets as local
-`make verify`, then builds the production API image and probes `/readyz`,
-`/livez`, and `/metrics` on the compose network.
+Tests use built-in **mock** data (orders/users), not your production databases.
+
+## Manual testing with the UI
+
+Automated tests do **not** need `make up`.
+
+To click through the app yourself:
+
+1. `make up`
+2. Open http://127.0.0.1:3000
+3. Follow [getting-started.md](getting-started.md)
+
+## Troubleshooting
+
+| Problem | Fix |
+|---------|-----|
+| Docker not running | Start Docker, then `make doctor` |
+| Tests very slow first time | Normal — images and caches download once |
+| Host `cargo` fails | Expected — use `make test` |

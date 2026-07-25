@@ -1,4 +1,16 @@
-# Anomaly detection engine
+# Anomaly detection
+
+## In plain English
+
+**Anomalies** are “something looks different than before” —
+for example a big jump in nulls, fewer rows, or a schema change.
+
+The engine compares the **latest profile** to older profiles.
+Findings can become **incidents**.
+
+Use the API `POST /v1/assets/{id}/anomalies/analyze` (and related dashboard flows).
+
+---
 
 ## Overview
 

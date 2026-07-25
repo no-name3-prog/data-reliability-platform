@@ -1,4 +1,15 @@
-# Lineage engine
+# Lineage
+
+## In plain English
+
+**Lineage** answers: *where did this data come from, and what uses it?*
+
+You can paste **SQL** to build table/column links, draw a graph, and see
+**impact** (which datasets, dashboards, or pipelines break if a table fails).
+
+Use the **Lineage** page in the dashboard, or the API under `/v1/lineage`.
+
+---
 
 ## Overview
 
