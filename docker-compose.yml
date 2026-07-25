@@ -148,6 +148,16 @@ services:
       retries: 10
       start_period: 20s
 
+  web:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.web
+    ports:
+      - "${DRP_WEB_PORT:-3000}:80"
+    depends_on:
+      api:
+        condition: service_started
+
   dev:
     <<: *dev-common
     stdin_open: true

@@ -29,7 +29,7 @@ help:
 	@echo "  make doctor / hooks / bootstrap"
 	@echo ""
 	@echo "Stack"
-	@echo "  make infra | up | down | logs | ps | api"
+	@echo "  make infra | up | down | logs | ps | api | web"
 	@echo ""
 	@echo "Quality (Docker)"
 	@echo "  make build | release | lint | fmt | clippy | doc"
@@ -89,8 +89,9 @@ wait-infra: ensure-docker
 	echo "ERROR: infrastructure not healthy in time"; $(DC) ps; exit 1
 
 up: ensure-docker
-	$(DC) up -d --build postgres redis minio minio-init api prometheus
-	@echo "API http://127.0.0.1:$${DRP_API_PORT:-8080}/readyz  Prometheus :9090"
+	$(DC) up -d --build postgres redis minio minio-init api prometheus web
+	@echo "Dashboard http://127.0.0.1:$${DRP_WEB_PORT:-3000}"
+	@echo "API       http://127.0.0.1:$${DRP_API_PORT:-8080}/readyz  Prometheus :9090"
 
 down: ensure-docker
 	$(DC) down --remove-orphans
@@ -180,6 +181,14 @@ verify: ensure-docker lint test-all build doc
 	@echo "=========================================="
 
 ci: verify
+
+web-build: ensure-docker
+	$(DC) build web
+
+web: ensure-docker
+	$(DC) up -d web
+	@echo "Dashboard: http://127.0.0.1:$${DRP_WEB_PORT:-3000}"
+
 
 clean: ensure-docker
 	$(DC) down -v --remove-orphans --rmi local || true
