@@ -25,7 +25,12 @@ max_concurrent_jobs = 8
 
 [notifications]
 enabled = true
-default_channels = ["log"]
+# Channels receive every incident open/status change (URLs empty => dry-run logs).
+default_channels = ["log", "slack", "email", "webhook"]
+slack_webhook_url = ""
+email_to = ""
+email_webhook_url = ""
+webhook_url = ""
 
 [profiling]
 sample_size = 10000

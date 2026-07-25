@@ -23,9 +23,9 @@ pub use domain::{
     AnomalyReport, AnomalySeverity, Asset, CatalogDatabase, CatalogSchema, CatalogTable,
     CatalogTree, CheckDefinition, CheckResult, ColumnLineageEdge, ColumnMeta, ColumnProfile,
     ColumnProfileDiff, ColumnRef, DatasetProfile, HistogramBin, ImpactReport, ImpactTrigger,
-    ImpactedAsset, Incident, IncidentStatus, JobDefinition, JobRun, JobStatus, LineageEdge,
-    LineageEdgeKind, LineageNode, LineageNodeKind, LineageSubgraphMeta, ProfileDiff, SemanticType,
-    ValidationRun, ValidationRunStatus,
+    ImpactedAsset, Incident, IncidentSource, IncidentStatus, IncidentTimelineEvent, JobDefinition,
+    JobRun, JobStatus, LineageEdge, LineageEdgeKind, LineageNode, LineageNodeKind,
+    LineageSubgraphMeta, ProfileDiff, SemanticType, ValidationRun, ValidationRunStatus,
 };
 pub use events::{EventBus, PlatformEvent};
 pub use logging::init_tracing;

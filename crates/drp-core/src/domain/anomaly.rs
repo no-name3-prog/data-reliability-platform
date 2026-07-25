@@ -1,7 +1,7 @@
-//! Anomaly detection domain types, profile-drift findings, and incidents.
+//! Anomaly detection domain types and profile-drift findings.
 //!
-//! Detectors and the profile-history engine produce [`AnomalyFinding`]s; the
-//! service materializes open [`Incident`]s when unusual changes are found.
+//! Detectors and the profile-history engine produce [`AnomalyFinding`]s.
+//! Incidents are owned by the incident domain module.
 
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
@@ -29,6 +29,17 @@ impl From<AnomalySeverity> for Severity {
             AnomalySeverity::Medium => Severity::Warning,
             AnomalySeverity::High => Severity::Error,
             AnomalySeverity::Critical => Severity::Critical,
+        }
+    }
+}
+
+impl From<Severity> for AnomalySeverity {
+    fn from(value: Severity) -> Self {
+        match value {
+            Severity::Info => AnomalySeverity::Low,
+            Severity::Warning => AnomalySeverity::Medium,
+            Severity::Error => AnomalySeverity::High,
+            Severity::Critical => AnomalySeverity::Critical,
         }
     }
 }
@@ -66,19 +77,6 @@ impl AnomalyKind {
             Self::Other => "other",
         }
     }
-}
-
-/// Lifecycle of an incident created from anomaly findings.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum IncidentStatus {
-    /// Newly opened, needs attention.
-    #[default]
-    Open,
-    /// Acknowledged by an operator.
-    Acknowledged,
-    /// Closed / fixed.
-    Resolved,
 }
 
 /// A single anomaly finding produced by a detector or profile rule.
@@ -188,78 +186,5 @@ impl AnomalyReport {
     /// Whether any findings were reported.
     pub fn has_findings(&self) -> bool {
         !self.findings.is_empty()
-    }
-}
-
-/// An incident raised when unusual profile/sample changes are found.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Incident {
-    /// Unique incident id.
-    pub id: IncidentId,
-    /// Asset in scope.
-    pub asset_id: AssetId,
-    /// Kind of anomaly.
-    pub kind: AnomalyKind,
-    /// Severity.
-    pub severity: AnomalySeverity,
-    /// Short title.
-    pub title: String,
-    /// Detail message.
-    pub message: String,
-    /// Lifecycle status.
-    pub status: IncidentStatus,
-    /// Detector / engine that produced the finding.
-    pub detector: String,
-    /// Optional column.
-    #[serde(default)]
-    pub field: Option<String>,
-    /// Parent anomaly report run.
-    pub report_run_id: RunId,
-    /// Baseline profile run (when profile-history based).
-    #[serde(default)]
-    pub baseline_run_id: Option<RunId>,
-    /// Current profile run.
-    #[serde(default)]
-    pub current_run_id: Option<RunId>,
-    /// Evidence snapshot.
-    #[serde(default)]
-    pub evidence: IndexMap<String, serde_json::Value>,
-    /// Created at.
-    pub created_at: UtcTimestamp,
-    /// Last update.
-    pub updated_at: UtcTimestamp,
-}
-
-impl Incident {
-    /// Open a new incident from a finding + report context.
-    pub fn from_finding(
-        asset_id: AssetId,
-        report_run_id: RunId,
-        baseline_run_id: Option<RunId>,
-        current_run_id: Option<RunId>,
-        finding: &AnomalyFinding,
-    ) -> Self {
-        let now = UtcTimestamp::now();
-        let title = match &finding.field {
-            Some(f) => format!("[{}] {} on '{f}'", finding.kind.as_str(), finding.detector),
-            None => format!("[{}] {}", finding.kind.as_str(), finding.detector),
-        };
-        Self {
-            id: IncidentId::new(),
-            asset_id,
-            kind: finding.kind,
-            severity: finding.severity,
-            title,
-            message: finding.message.clone(),
-            status: IncidentStatus::Open,
-            detector: finding.detector.clone(),
-            field: finding.field.clone(),
-            report_run_id,
-            baseline_run_id,
-            current_run_id,
-            evidence: finding.evidence.clone(),
-            created_at: now,
-            updated_at: now,
-        }
     }
 }

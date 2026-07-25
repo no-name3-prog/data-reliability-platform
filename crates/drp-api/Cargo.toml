@@ -24,6 +24,7 @@ drp-validation.workspace = true
 drp-lineage.workspace = true
 drp-scheduler.workspace = true
 drp-notifications.workspace = true
+drp-incidents.workspace = true
 drp-plugin-example-connector.workspace = true
 drp-ai.workspace = true
 drp-anomaly.workspace = true

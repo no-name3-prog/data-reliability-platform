@@ -3,13 +3,14 @@
 use std::sync::Arc;
 
 use drp_ai::register_builtin_ai_providers;
-use drp_anomaly::register_builtin_detectors;
+use drp_anomaly::{register_builtin_detectors, AnomalyService};
 use drp_api::{build_app, build_router, AppState};
-use drp_common::AppConfig;
+use drp_common::{AppConfig, NotificationsConfig};
 use drp_connectors::{
     register_builtin_connectors, FailingConnector, FixtureConnector, MockConnector,
 };
 use drp_core::{EventBus, PluginRegistry};
+use drp_incidents::IncidentService;
 use drp_lineage::LineageService;
 use drp_metadata::MetadataService;
 use drp_notifications::{register_builtin_notifiers, NotificationService};
@@ -80,6 +81,10 @@ pub struct PlatformHarness {
     pub scheduler: SchedulerService,
     /// Notifications.
     pub notifications: NotificationService,
+    /// Incidents.
+    pub incidents: IncidentService,
+    /// Anomaly.
+    pub anomaly: AnomalyService,
 }
 
 impl PlatformHarness {
@@ -91,7 +96,17 @@ impl PlatformHarness {
         register_builtin_profilers(&plugins);
         register_builtin_validators(&plugins);
         register_builtin_detectors(&plugins);
-        register_builtin_notifiers(&plugins);
+        register_builtin_notifiers(
+            &plugins,
+            &NotificationsConfig {
+                enabled: true,
+                default_channels: vec!["log".into()],
+                slack_webhook_url: String::new(),
+                email_to: String::new(),
+                email_webhook_url: String::new(),
+                webhook_url: String::new(),
+            },
+        );
         register_builtin_ai_providers(&plugins);
 
         plugins.register_connector(Arc::new(MockConnector::new()));
@@ -101,16 +116,27 @@ impl PlatformHarness {
         let metadata = MetadataService::new(store.clone(), plugins.clone(), events.clone());
         let profiling =
             ProfilingService::new(store.clone(), plugins.clone(), events.clone(), 10_000);
+        let notifications = NotificationService::new(plugins.clone(), vec!["log".into()], true);
+        let incidents =
+            IncidentService::new(store.clone(), events.clone(), notifications.clone(), true);
         let validation = ValidationService::new(
             store.clone(),
             plugins.clone(),
             events.clone(),
             10_000,
             false,
-        );
+        )
+        .with_incidents(incidents.clone());
         let lineage = LineageService::new(20);
         let scheduler = SchedulerService::new(store.clone(), events.clone(), 4);
-        let notifications = NotificationService::new(plugins.clone(), vec!["log".into()], true);
+        let anomaly = AnomalyService::new(
+            store.clone(),
+            plugins.clone(),
+            events.clone(),
+            10_000,
+            Default::default(),
+            incidents.clone(),
+        );
 
         Self {
             store,
@@ -122,6 +148,8 @@ impl PlatformHarness {
             lineage,
             scheduler,
             notifications,
+            incidents,
+            anomaly,
         }
     }
 }

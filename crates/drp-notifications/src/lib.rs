@@ -1,4 +1,6 @@
-//! Notification channels. Built and tested only inside Docker.
+//! Notification channels: log, Slack, email, webhooks.
+//!
+//! Built and tested only inside Docker.
 
 #![warn(missing_docs)]
 #![warn(clippy::all)]
@@ -8,7 +10,7 @@ mod channels;
 mod registry;
 mod service;
 
-pub use channels::LogNotifier;
+pub use channels::{EmailNotifier, LogNotifier, SlackNotifier, WebhookNotifier};
 pub use registry::register_builtin_notifiers;
 pub use service::NotificationService;
 

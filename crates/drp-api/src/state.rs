@@ -5,6 +5,7 @@ use std::sync::Arc;
 use drp_ai::AiService;
 use drp_anomaly::AnomalyService;
 use drp_core::Platform;
+use drp_incidents::IncidentService;
 use drp_lineage::LineageService;
 use drp_metadata::MetadataService;
 use drp_notifications::NotificationService;
@@ -32,6 +33,8 @@ pub struct AppState {
     pub scheduler: SchedulerService,
     /// Notifications.
     pub notifications: NotificationService,
+    /// Incident management.
+    pub incidents: IncidentService,
     /// Anomaly detection.
     pub anomaly: AnomalyService,
     /// AI providers.
