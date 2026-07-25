@@ -136,7 +136,7 @@ impl ProfilerPlugin for BasicProfiler {
             stats.insert("non_null_count".into(), json!(non_null));
             stats.insert(
                 "semantic_type".into(),
-                json!(format!("{:?}", semantic_type).to_ascii_lowercase()),
+                json!(format!("{semantic_type:?}").to_ascii_lowercase()),
             );
 
             let (min, max) = if summary.min.is_some() {

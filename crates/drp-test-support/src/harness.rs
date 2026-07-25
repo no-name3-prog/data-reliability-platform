@@ -29,15 +29,15 @@ pub struct TestPlatform {
 }
 
 impl TestPlatform {
-    /// Build with defaults + built-in plugins (mock, fixture, validators, …).
-    pub fn new() -> Self {
+    /// Build with defaults + built-in plugins (async).
+    pub async fn new() -> Self {
         let mut config = AppConfig::default();
         config.logging.level = "error".into();
         config.logging.format = "pretty".into();
         config.scheduler.enabled = false;
+        config.storage.backend = "memory".into();
 
-        // build_app installs tracing/metrics — fine in tests (try_init).
-        let state = build_app(config).expect("build_app for tests");
+        let state = build_app(config).await.expect("build_app for tests");
         let store = state.store.clone();
         let plugins = state.platform.plugins.clone();
         Self {
@@ -57,12 +57,6 @@ impl TestPlatform {
     /// Axum router bound to this platform (for HTTP integration tests).
     pub fn router(&self) -> axum::Router {
         build_router(self.state.clone())
-    }
-}
-
-impl Default for TestPlatform {
-    fn default() -> Self {
-        Self::new()
     }
 }
 
@@ -100,7 +94,6 @@ impl PlatformHarness {
         register_builtin_notifiers(&plugins);
         register_builtin_ai_providers(&plugins);
 
-        // Ensure mock is present (also re-register for clarity).
         plugins.register_connector(Arc::new(MockConnector::new()));
         plugins.register_connector(Arc::new(FixtureConnector::with_sample_data()));
 

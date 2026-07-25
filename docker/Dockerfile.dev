@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.6
 # Development / CI toolchain image.
 # Host machines never install Rust — all cargo/clippy/rustfmt/nextest/test run here.
-FROM rust:1.85-bookworm
+FROM rust:1.88-bookworm
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
         build-essential \

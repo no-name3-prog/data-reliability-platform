@@ -32,7 +32,7 @@ data-reliability-platform/
 │   ├── drp-common/            # Errors, IDs, config, shared value types
 │   ├── drp-core/              # Domain + plugin traits + registry + events
 │   ├── drp-storage/           # Store trait + memory backend
-│   ├── drp-connectors/        # Built-in connectors (mock, fixture, …)
+│   ├── drp-connectors/        # postgres, csv, parquet, mock/fixture
 │   ├── drp-metadata/          # Catalog service (uses ConnectorPlugin by id)
 │   ├── drp-profiling/         # Profiler plugins + service
 │   ├── drp-validation/        # Validator plugins + service
