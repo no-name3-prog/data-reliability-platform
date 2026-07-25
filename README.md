@@ -31,6 +31,7 @@ make up           # api + prometheus + infra
 
 | Endpoint | URL |
 |----------|-----|
+| **Dashboard** | http://127.0.0.1:3000 |
 | Readiness | http://127.0.0.1:8080/readyz |
 | Liveness | http://127.0.0.1:8080/livez |
 | Metrics | http://127.0.0.1:8080/metrics |
@@ -42,7 +43,8 @@ make up           # api + prometheus + infra
 | Command | Runs in | Description |
 |---------|---------|-------------|
 | `make bootstrap` | Docker | Image + infra + hooks |
-| `make up` / `make down` | Compose | Full stack |
+| `make up` / `make down` | Compose | Full stack (API + dashboard) |
+| `make web` / `make web-build` | Compose | Dashboard only |
 | `make build` | Container | `cargo build --workspace` |
 | `make test` | Container | cargo-nextest full suite |
 | `make test-unit` | Container | Unit tests (nextest) |
@@ -107,6 +109,7 @@ Connectors, validation rules, anomaly detectors, notifications, and AI providers
 | [Anomaly](docs/anomaly.md) | Profile drift, incidents |
 | [Lineage](docs/lineage.md) | SQL parse, column lineage, impact |
 | [Incidents](docs/incidents.md) | Severity, timeline, multi-channel notify |
+| [Dashboard](docs/dashboard.md) | Web console (sources, DQ, lineage) |
 | [Plugin architecture](docs/plugin-architecture.md) | Traits, registry, dependency rules |
 | [Contributing plugins](docs/contributing-plugins.md) | Step-by-step for new plugins |
 | [Repository structure](docs/repository-structure.md) | Where code lives |
