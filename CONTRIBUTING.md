@@ -1,95 +1,98 @@
 # Contributing
 
-## Prerequisites (host only)
+Thanks for helping improve the Data Reliability Platform.
 
-- **Git**
-- **Docker CLI** + **Compose**
+## Rules (please read)
 
-Do **not** install Rust, PostgreSQL, Redis, MinIO, or Prometheus on the host.
+1. **Do not push to `main`.** GitHub blocks it. Always use a **branch + Pull Request**.
+2. **Use Docker.** Do not install Rust or databases just for this project.
+3. **Run tests before you open a PR:** `make lint` and `make test`.
+4. **Only the repo owner merges** PRs into `main`.
 
+## What you need
 
-## Branching policy (required)
-
-**Direct commits and pushes to `main` are blocked.**
-
-1. Create a **feature branch** from `main`
-2. Push the branch and open a **pull request**
-3. Wait for **GitHub Actions** (containerized CI) to pass
-4. **Only the repository owner** merges the PR
-
-Details: [docs/branching-and-merging.md](docs/branching-and-merging.md)
-
-```bash
-git checkout -b feature/my-change
-# … make lint && make test …
-git push -u origin HEAD
-gh pr create --base main
-```
+- Git  
+- Docker (running)
 
 ## First-time setup
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/no-name3-prog/data-reliability-platform.git
 cd data-reliability-platform
 make doctor
-make bootstrap   # toolchain image + infra + git hooks
-make build
+make bootstrap
 make test
-make up          # api + prometheus + infra
 ```
 
-## Testing
+## Make a change (step by step)
 
 ```bash
-make test-unit
-make test-integration
-make test-regression
-make verify          # full gate (mirrors CI)
+# 1. Start from latest main
+git checkout main
+git pull origin main
+
+# 2. Create your branch (pick a clear name)
+git checkout -b feature/short-description
+
+# 3. Edit the code or docs
+
+# 4. Check your work (runs inside Docker)
+make lint
+make test
+
+# 5. Commit and push
+git add -A
+git commit -m "feat: describe your change in one short line"
+git push -u origin HEAD
+
+# 6. Open a Pull Request against main
+gh pr create --base main
+# or open the link GitHub prints after push
 ```
 
-See [docs/testing.md](docs/testing.md).
+### Good commit messages
 
-## Everyday workflow
+- `feat: add email validation rule`
+- `fix: handle empty profile history`
+- `docs: simplify getting started guide`
+
+## Useful commands
 
 | Task | Command |
 |------|---------|
-| Format | `make fmt` |
+| Format code | `make fmt` |
 | Lint | `make lint` |
-| Test | `make test` |
-| Full gate | `make check` or `make ci` |
-| Shell in toolchain | `make shell` |
-| Arbitrary cargo | `./scripts/cargo.sh test -p drp-core` |
-| Unified helper | `./scripts/drp.sh test` |
+| Tests | `make test` |
+| Full check (like CI) | `make verify` |
+| Start app + UI | `make up` |
+| Stop app | `make down` |
 
-All of the above execute **inside containers**.
+## Pull Request checklist
+
+- [ ] Branch is based on latest `main`
+- [ ] `make lint` passes
+- [ ] `make test` passes
+- [ ] PR description explains **what** and **why**
+- [ ] Docs updated if you changed behavior users see
 
 ## Git hooks
 
-`make bootstrap` (or `make hooks`) sets `core.hooksPath=.githooks`:
+After `make bootstrap`, Git will run checks before commit/push (in Docker).  
+If a hook fails, fix the error and try again.
 
-- **pre-commit** → `make fmt-check` + `make clippy` (Docker)
-- **pre-push** → `make test` (Docker)
+## Where to put code
 
-Optional: if you use the Python `pre-commit` tool, `.pre-commit-config.yaml` also shells out to `make` (still containerized).
+| If you are adding… | Look at |
+|--------------------|---------|
+| A new connector / rule / notifier | [docs/contributing-plugins.md](docs/contributing-plugins.md) |
+| API routes | `crates/drp-api` |
+| Dashboard UI | `web/` |
+| Docs | `docs/` or `README.md` |
 
-## Pull requests
+## Need help?
 
-1. Branch from `main`
-2. `make ci` must pass locally (containerized)
-3. CI on GitHub runs the same Docker gate — no host Rust on runners
+- [Getting started](docs/getting-started.md)  
+- [Testing](docs/testing.md)  
+- [Branching policy](docs/branching-and-merging.md)  
 
-## Plugins
-
-Adding connectors, rules, detectors, notifiers, or AI providers:
-
-1. Read [docs/plugin-architecture.md](docs/plugin-architecture.md)
-2. Follow [docs/contributing-plugins.md](docs/contributing-plugins.md)
-3. Copy `plugins/example-connector` when possible
-4. Register **one line** in `crates/drp-api/src/app.rs` — do not modify core traits for routine plugins
-
-## Code standards
-
-- `rustfmt` + `clippy -D warnings` (see `rustfmt.toml`, `clippy.toml`)
-- EditorConfig (`.editorconfig`)
-- No `unsafe` in platform crates (`forbid(unsafe_code)`)
-- Prefer plugins over forking core services (see `docs/architecture.md`)
+Thank you!

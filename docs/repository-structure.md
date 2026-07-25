@@ -1,52 +1,20 @@
 # Repository structure
 
-```text
-data-reliability-platform/
-├── Cargo.toml                 # Workspace root + shared deps
-├── Makefile                   # Container-first DX (only Git + Docker on host)
-├── docker-compose.yml         # postgres, redis, minio, api, prometheus, dev
-├── docker/
-│   ├── Dockerfile             # Production API image
-│   ├── Dockerfile.dev         # Toolchain: rustc, clippy, rustfmt, nextest
-│   ├── Dockerfile.docs
-│   ├── init-postgres.sql
-│   └── prometheus/
-├── config/                    # Runtime defaults (mounted in containers)
-├── .config/nextest.toml       # Test profiles (unit / integration / regression / ci)
-├── .githooks/                 # pre-commit / pre-push → make (Docker)
-├── .github/workflows/ci.yml   # Mirrors make verify + image smoke
-├── docs/
-│   ├── plugin-architecture.md # Trait design & rules (start here for plugins)
-│   ├── contributing-plugins.md
-│   ├── repository-structure.md
-│   ├── architecture.md
-│   ├── development.md
-│   ├── testing.md
-│   ├── container-workflow.md
-│   └── operations.md
-├── scripts/
-│   ├── cargo.sh               # cargo inside dev container
-│   ├── drp.sh                 # unified helper
-│   └── install-hooks.sh
-├── crates/                    # Platform libraries & services
-│   ├── drp-common/            # Errors, IDs, config, shared value types
-│   ├── drp-core/              # Domain + plugin traits + registry + events
-│   ├── drp-storage/           # Store trait + memory backend
-│   ├── drp-connectors/        # postgres, csv, parquet, mock/fixture
-│   ├── drp-metadata/          # Catalog service (uses ConnectorPlugin by id)
-│   ├── drp-profiling/         # Profiler plugins + service
-│   ├── drp-validation/        # Validator plugins + service
-│   ├── drp-anomaly/           # Anomaly detector plugins + service
-│   ├── drp-ai/                # AI provider plugins + service
-│   ├── drp-notifications/     # Notification plugins + service
-│   ├── drp-lineage/           # Lineage graph
-│   ├── drp-scheduler/         # Jobs + JobHandler registry
-│   ├── drp-api/               # Composition root + HTTP + binary
-│   ├── drp-test-support/      # Shared test harness (not published)
-│   └── drp-tests/             # Integration + regression suites
-└── plugins/                   # Optional / example / third-party-style plugins
-    └── example-connector/     # Copy-paste template
-```
+## In plain English
+
+This is a map of the folders.  
+You do not need to memorize it to run the demo — only when you change code.
+
+| Folder | Meaning |
+|--------|---------|
+| `crates/` | Backend pieces |
+| `web/` | Dashboard UI |
+| `docs/` | Guides |
+| `docker/` | How we package and run things |
+| `config/` | Settings files |
+| `plugins/` | Example add-ons |
+
+---
 
 ## Where new code goes
 

@@ -1,129 +1,175 @@
 # Data Reliability Platform
 
-**Container-first** Rust monorepo for data reliability: catalog metadata, profiling, validation, lineage, scheduling, notifications, structured logging, and Prometheus metrics.
+A tool that helps you **check whether your data is healthy**.
 
-## Host prerequisites (only these)
+It can:
 
-| Tool | Purpose |
-|------|---------|
-| **Git** | Version control + hooks |
-| **Docker CLI** + **Compose** | Build, lint, test, run, docs, infra |
+1. **Find** your tables and files (discover data sources)
+2. **Measure** them (profiling — nulls, types, stats)
+3. **Test** them with rules (validation — e.g. “email must not be empty”)
+4. **Spot odd changes** over time (anomalies)
+5. **Show what depends on what** (lineage)
+6. **Open tickets** when something fails (incidents + Slack/email/webhooks)
 
-### Explicitly not required on the host
+You use it with:
 
-- Rust toolchain (`rustc`, `cargo`, `rustup`)
-- PostgreSQL, Redis, MinIO, Prometheus
-- Running tests with host `cargo test`
+- a **web dashboard** (point and click), and/or  
+- a **HTTP API** (for scripts and pipelines)
 
-## Quick start
+Everything runs in **Docker**. You do **not** need to install Rust or databases on your laptop.
+
+---
+
+## What you need on your computer
+
+| Tool | Why |
+|------|-----|
+| [Git](https://git-scm.com/) | Download the code |
+| [Docker](https://www.docker.com/products/docker-desktop/) | Run the app |
+
+That’s it. Leave Docker **running** before you start.
+
+---
+
+## Start in 5 minutes
 
 ```bash
 git clone https://github.com/no-name3-prog/data-reliability-platform.git
 cd data-reliability-platform
 
-make doctor
-make bootstrap    # toolchain image + postgres/redis/minio + git hooks
-make build
-make test
-make lint
-make up           # api + prometheus + infra
+make doctor      # checks Docker is OK
+make bootstrap   # first time only — builds images, starts support services
+make up          # starts API + dashboard + databases
 ```
 
-| Endpoint | URL |
-|----------|-----|
-| **Dashboard** | http://127.0.0.1:3000 |
-| Readiness | http://127.0.0.1:8080/readyz |
-| Liveness | http://127.0.0.1:8080/livez |
-| Metrics | http://127.0.0.1:8080/metrics |
-| Prometheus | http://127.0.0.1:9090 |
-| MinIO console | http://127.0.0.1:9001 |
+The first `make up` can take **several minutes** (building images). Wait until it finishes.
 
-## Common commands
+### Open these links
 
-| Command | Runs in | Description |
-|---------|---------|-------------|
-| `make bootstrap` | Docker | Image + infra + hooks |
-| `make up` / `make down` | Compose | Full stack (API + dashboard) |
-| `make web` / `make web-build` | Compose | Dashboard only |
-| `make build` | Container | `cargo build --workspace` |
-| `make test` | Container | cargo-nextest full suite |
-| `make test-unit` | Container | Unit tests (nextest) |
-| `make test-integration` | Container | Integration tests |
-| `make test-regression` | Container | Regression / golden |
-| `make verify` | Container | Full CI mirror |
-| `make fmt` / `make lint` | Container | rustfmt + clippy |
-| `make check` / `make ci` | Container | Full quality gate |
-| `make doc` / `make docs-serve` | Container | rustdoc |
-| `make shell` | Container | Interactive toolchain shell |
-| `make hooks` | Host git config | Install container-backed hooks |
-| `./scripts/cargo.sh …` | Container | Arbitrary cargo |
-| `./scripts/drp.sh <target>` | Make/Docker | Unified helper |
+| What | Address |
+|------|---------|
+| **Dashboard (UI)** | http://127.0.0.1:3000 |
+| API health check | http://127.0.0.1:8080/readyz |
+| Prometheus (metrics) | http://127.0.0.1:9090 |
 
-## Production-grade standards
+If the health check fails, the API is not ready yet. Wait a bit, then try again.  
+Or run: `docker-compose ps` and `make logs`.
 
-| Concern | Implementation |
-|---------|----------------|
-| Formatting | `rustfmt.toml` + `make fmt` / `fmt-check` |
-| Linting | `clippy.toml` + `make clippy` (`-D warnings`) |
-| Editor | `.editorconfig` |
-| Git hooks | `.githooks/` + optional `.pre-commit-config.yaml` (Docker only) |
-| CI | `.github/workflows/ci.yml` (Docker-only runner) |
-| Logging | JSON/pretty structured tracing + `x-request-id` |
-| Metrics | Prometheus `/metrics` + compose `prometheus` service |
-| Health | `/livez`, `/readyz`, `/startupz` |
-| Docs | `docs/*`, `CONTRIBUTING.md`, rustdoc |
+### Try the demo (no real database needed)
 
-## Workspace crates
+1. Open **http://127.0.0.1:3000**
+2. Click **Load mock data**
+3. Open **Datasets** → click **orders**
+4. Try **Profiling** and **Validation**
+5. Check **Incidents** if a check fails
 
-| Crate | Role |
-|-------|------|
-| `drp-common` | Errors, IDs, config, shared types |
-| `drp-core` | Domain, plugins, events, logging |
-| `drp-storage` | Persistence trait + memory backend |
-| `drp-connectors` | Connector plugins (`mock`) |
-| `drp-metadata` | Asset catalog |
-| `drp-profiling` | Profiling (stats, semantic types, history) |
-| `drp-validation` | Validation engine (rules, schedule, history) |
-| `drp-anomaly` | Anomaly engine (profile drift, incidents) |
-| `drp-ai` | AI / LLM provider plugins |
-| `drp-lineage` | Lineage (SQL, column-level, impact) |
-| `drp-scheduler` | Jobs |
-| `drp-notifications` | Alerts (log, Slack, email, webhook) |
-| `drp-incidents` | Incident management |
-| `drp-api` | HTTP API + binary |
+Mock data includes an **orders** table with one missing email — perfect for a failing quality check.
 
-## Contributing / branching
+Stop everything:
 
-Direct pushes to `main` are **blocked**. Use a feature branch + PR; **only the repo owner merges**.
+```bash
+make down
+```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) and [docs/branching-and-merging.md](docs/branching-and-merging.md).
+More detail: [docs/getting-started.md](docs/getting-started.md)
 
-## Plugin system
+---
 
-Connectors, validation rules, anomaly detectors, notifications, and AI providers are **Rust traits** in `drp-core`. Implementations are separate crates registered only at the API composition root.
+## Everyday commands
 
-| Doc | Purpose |
-|-----|---------|
-| [Profiling](docs/profiling.md) | Stats, semantic types, history |
-| [Validation](docs/validation.md) | Rules, schedule, result history |
-| [Anomaly](docs/anomaly.md) | Profile drift, incidents |
-| [Lineage](docs/lineage.md) | SQL parse, column lineage, impact |
-| [Incidents](docs/incidents.md) | Severity, timeline, multi-channel notify |
-| [Dashboard](docs/dashboard.md) | Web console (sources, DQ, lineage) |
-| [Plugin architecture](docs/plugin-architecture.md) | Traits, registry, dependency rules |
-| [Contributing plugins](docs/contributing-plugins.md) | Step-by-step for new plugins |
-| [Repository structure](docs/repository-structure.md) | Where code lives |
-| [Development process](docs/development-process.md) | Branch → PR → CI |
+Run these from the project folder. They all use Docker under the hood.
 
-Template: `plugins/example-connector`.
+| I want to… | Command |
+|------------|---------|
+| Start the full app | `make up` |
+| Stop the app | `make down` |
+| See if Docker is OK | `make doctor` |
+| Run tests | `make test` |
+| Check code style | `make lint` |
+| Run everything CI runs | `make verify` |
+| Open a shell inside the build container | `make shell` |
+| Rebuild only the dashboard | `make web-build && make web` |
 
-## Documentation
+**Do not** run `cargo test` or `cargo build` on your host. Use `make` instead.
 
-- [Container workflow](docs/container-workflow.md)
-- [Development](docs/development.md)
-- [Architecture](docs/architecture.md)
-- [Operations](docs/operations.md)
-- [Contributing](CONTRIBUTING.md)
+---
+
+## How the pieces fit together
+
+```text
+Discover data  →  Profile  →  Validate  →  Anomalies
+                      ↓
+                 Lineage (who is affected?)
+                      ↓
+                 Incidents + alerts
+```
+
+| Area | What it does | Docs |
+|------|----------------|------|
+| Connectors | Talk to Postgres, CSV, Parquet, mock data | [connectors](docs/connectors.md) |
+| Profiling | Stats, types, history | [profiling](docs/profiling.md) |
+| Validation | Quality rules + schedules | [validation](docs/validation.md) |
+| Anomalies | Detect unusual profile changes | [anomaly](docs/anomaly.md) |
+| Lineage | SQL graph + impact | [lineage](docs/lineage.md) |
+| Incidents | Severity, owner, timeline, notifications | [incidents](docs/incidents.md) |
+| Dashboard | Web UI | [dashboard](docs/dashboard.md) |
+
+---
+
+## Project layout (simple view)
+
+| Folder | What’s inside |
+|--------|----------------|
+| `crates/` | Backend (Rust) — API and engines |
+| `web/` | Dashboard (React) |
+| `docs/` | Guides like this one |
+| `docker/` | Docker images |
+| `config/` | Settings (logging, notifications, …) |
+| `plugins/` | Example plugins you can copy |
+
+You do **not** need to understand all of this to run the demo.
+
+---
+
+## Contributing (how we accept changes)
+
+1. **Never push straight to `main`** — it is blocked.
+2. Create a **branch**, make your change, open a **Pull Request**.
+3. Wait for **GitHub Actions** (tests in Docker) to pass.
+4. The **repo owner** merges the PR.
+
+```bash
+git checkout main
+git pull origin main
+git checkout -b feature/my-change
+
+# edit files…
+make lint
+make test
+
+git add -A
+git commit -m "feat: short description of change"
+git push -u origin HEAD
+gh pr create --base main
+```
+
+Full guide: [CONTRIBUTING.md](CONTRIBUTING.md)
+
+---
+
+## Learn more
+
+| Guide | For |
+|-------|-----|
+| [Getting started](docs/getting-started.md) | First run + demo walkthrough |
+| [Dashboard](docs/dashboard.md) | Using the UI |
+| [Testing](docs/testing.md) | How tests work |
+| [Container workflow](docs/container-workflow.md) | Why everything is in Docker |
+| [Development](docs/development.md) | Day-to-day coding |
+| [Architecture](docs/architecture.md) | How crates fit together |
+| [Operations](docs/operations.md) | Logs, health, metrics |
+
+---
 
 ## License
 

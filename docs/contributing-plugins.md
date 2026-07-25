@@ -1,6 +1,13 @@
 # Contributing plugins
 
-This guide is for engineers adding **connectors**, **validation rules**, **anomaly detectors**, **notification channels**, or **AI providers**.
+## In plain English
+
+Want to add a new connector, validation rule, or notification channel?  
+This page is the step-by-step recipe. You will mostly write Rust and register your plugin in one place.
+
+If you are new to the project, run the app first: [getting-started.md](getting-started.md).
+
+---
 
 ## Prerequisites (host)
 

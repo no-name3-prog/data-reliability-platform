@@ -1,4 +1,15 @@
-# Connector framework
+# Connectors
+
+## In plain English
+
+A **connector** is how the platform talks to a data system
+(mock sample data, Postgres, CSV files, Parquet files, …).
+
+**Discover** finds tables/files. Then you can profile and validate them.
+
+Built-in for demos: connector id **`mock`** (orders + users sample data).
+
+---
 
 ## Interface
 

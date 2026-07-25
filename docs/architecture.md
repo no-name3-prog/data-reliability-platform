@@ -1,5 +1,17 @@
 # Architecture
 
+## In plain English
+
+The backend is split into small **Rust packages** (crates).  
+Each package has a job (storage, validation, lineage, …).  
+They plug together through a shared **API process**.
+
+You can add new connectors or rules without rewriting the whole app (**plugins**).
+
+The **dashboard** is a separate web app that calls the API.
+
+---
+
 ## Overview
 
 The platform is a **Cargo workspace** of small crates with a **trait-based plugin system**. Core defines contracts; implementations register at the **composition root** (`drp-api`).
