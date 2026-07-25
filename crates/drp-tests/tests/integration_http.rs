@@ -5,7 +5,7 @@ use serde_json::json;
 
 #[tokio::test]
 async fn integration_health_ready_metrics() {
-    let platform = TestPlatform::new();
+    let platform = TestPlatform::new().await;
     let client = TestClient::new(platform.router());
 
     let (st, body) = get_json(&client, "/livez").await;
@@ -25,7 +25,7 @@ async fn integration_health_ready_metrics() {
 
 #[tokio::test]
 async fn integration_discover_and_list_assets() {
-    let platform = TestPlatform::new();
+    let platform = TestPlatform::new().await;
     let client = TestClient::new(platform.router());
 
     let (st, body) = post_json(
@@ -44,7 +44,7 @@ async fn integration_discover_and_list_assets() {
 
 #[tokio::test]
 async fn integration_plugins_endpoint_lists_builtins() {
-    let platform = TestPlatform::new();
+    let platform = TestPlatform::new().await;
     let client = TestClient::new(platform.router());
     let (st, body) = get_json(&client, "/v1/plugins").await;
     assert!(st.is_success());

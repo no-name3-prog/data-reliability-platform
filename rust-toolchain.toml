@@ -1,5 +1,5 @@
 # Used only *inside* Docker images. Host machines do not need rustup/cargo.
 [toolchain]
-channel = "1.85"
+channel = "1.88"
 components = ["rustfmt", "clippy", "rust-src"]
 profile = "default"
