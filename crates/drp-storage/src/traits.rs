@@ -2,10 +2,11 @@
 
 use async_trait::async_trait;
 
-use drp_common::{AssetId, CheckId, IncidentId, JobId, Result, RunId};
+use drp_common::{AssetId, CheckId, IncidentId, JobId, Result, RunId, SuggestionId};
 use drp_core::{
     AnomalyReport, Asset, CheckDefinition, CheckResult, DatasetProfile, Incident,
-    IncidentTimelineEvent, JobDefinition, JobRun, ValidationRun,
+    IncidentTimelineEvent, JobDefinition, JobRun, RuleSuggestion, RuleSuggestionStatus,
+    ValidationRun,
 };
 
 /// Persistence interface used by all feature crates.
@@ -105,4 +106,16 @@ pub trait Store: Send + Sync {
     async fn get_job_run(&self, id: &RunId) -> Result<Option<JobRun>>;
     /// List runs for a job.
     async fn list_job_runs(&self, job_id: &JobId, limit: Option<usize>) -> Result<Vec<JobRun>>;
+
+    /// Upsert an AI rule suggestion.
+    async fn upsert_rule_suggestion(&self, suggestion: RuleSuggestion) -> Result<RuleSuggestion>;
+    /// Get a rule suggestion by id.
+    async fn get_rule_suggestion(&self, id: &SuggestionId) -> Result<Option<RuleSuggestion>>;
+    /// List rule suggestions (newest first), optionally filtered by asset and status.
+    async fn list_rule_suggestions(
+        &self,
+        asset_id: Option<&AssetId>,
+        status: Option<RuleSuggestionStatus>,
+        limit: Option<usize>,
+    ) -> Result<Vec<RuleSuggestion>>;
 }

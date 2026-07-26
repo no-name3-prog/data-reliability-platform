@@ -25,7 +25,8 @@ pub use domain::{
     ColumnProfileDiff, ColumnRef, DatasetProfile, HistogramBin, ImpactReport, ImpactTrigger,
     ImpactedAsset, Incident, IncidentSource, IncidentStatus, IncidentTimelineEvent, JobDefinition,
     JobRun, JobStatus, LineageEdge, LineageEdgeKind, LineageNode, LineageNodeKind,
-    LineageSubgraphMeta, ProfileDiff, SemanticType, ValidationRun, ValidationRunStatus,
+    LineageSubgraphMeta, ProfileDiff, ProposedRule, RuleSuggestion, RuleSuggestionStatus,
+    SemanticType, ValidationRun, ValidationRunStatus,
 };
 pub use events::{EventBus, PlatformEvent};
 pub use logging::init_tracing;

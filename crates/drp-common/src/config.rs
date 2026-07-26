@@ -37,6 +37,9 @@ pub struct AppConfig {
     /// Anomaly detection defaults.
     #[serde(default)]
     pub anomaly: AnomalyConfig,
+    /// Optional AI layer (rule suggestions, completions).
+    #[serde(default)]
+    pub ai: AiConfig,
     /// Infra connection strings (provided by compose in containers).
     pub infra: InfraConfig,
 }
@@ -180,6 +183,90 @@ impl Default for AnomalyConfig {
     }
 }
 
+/// Optional AI / LLM layer configuration.
+///
+/// The AI stack is **pluggable**: any registered AI provider plugin can be used.
+/// Built-ins include offline `heuristic` / `echo` and optional `openai_compatible`
+/// (SpaceXAI/xAI, Ollama, OpenAI, or any OpenAI-compatible base URL).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AiConfig {
+    /// Master switch for AI-assisted features (rule suggestions, etc.).
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+    /// Default AI provider plugin id (`heuristic`, `echo`, `openai_compatible`, …).
+    #[serde(default = "default_ai_provider")]
+    pub default_provider: String,
+    /// Sample row count when gathering context for suggestions.
+    #[serde(default = "default_ai_sample_rows")]
+    pub sample_rows: usize,
+    /// OpenAI-compatible HTTP provider settings (SpaceXAI/xAI, Ollama, etc.).
+    #[serde(default)]
+    pub openai_compatible: OpenAiCompatibleConfig,
+}
+
+fn default_true() -> bool {
+    true
+}
+
+fn default_ai_provider() -> String {
+    "heuristic".into()
+}
+
+fn default_ai_sample_rows() -> usize {
+    20
+}
+
+impl Default for AiConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            default_provider: default_ai_provider(),
+            sample_rows: default_ai_sample_rows(),
+            openai_compatible: OpenAiCompatibleConfig::default(),
+        }
+    }
+}
+
+/// Settings for the pluggable OpenAI-compatible chat completions provider.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenAiCompatibleConfig {
+    /// When true, register the `openai_compatible` provider at startup.
+    #[serde(default)]
+    pub enabled: bool,
+    /// API base URL (e.g. `https://api.x.ai/v1` or `http://ollama:11434/v1`).
+    #[serde(default = "default_openai_base_url")]
+    pub base_url: String,
+    /// Environment variable name that holds the API key (empty = no auth header).
+    #[serde(default = "default_openai_api_key_env")]
+    pub api_key_env: String,
+    /// Default model id when the request does not specify one.
+    #[serde(default = "default_openai_model")]
+    pub model: String,
+}
+
+fn default_openai_base_url() -> String {
+    "https://api.x.ai/v1".into()
+}
+
+fn default_openai_api_key_env() -> String {
+    "XAI_API_KEY".into()
+}
+
+fn default_openai_model() -> String {
+    "grok-4.5".into()
+}
+
+impl Default for OpenAiCompatibleConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            base_url: default_openai_base_url(),
+            api_key_env: default_openai_api_key_env(),
+            model: default_openai_model(),
+        }
+    }
+}
+
 /// External infrastructure URLs (compose service DNS names in containers).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InfraConfig {
@@ -247,6 +334,7 @@ impl Default for AppConfig {
             },
             lineage: LineageConfig { max_depth: 20 },
             anomaly: AnomalyConfig::default(),
+            ai: AiConfig::default(),
             infra: InfraConfig {
                 database_url: "postgres://drp:drp@postgres:5432/drp".into(),
                 redis_url: "redis://redis:6379".into(),

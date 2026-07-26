@@ -79,6 +79,45 @@ export interface CheckDefinition {
   created_at?: string;
 }
 
+export interface ProposedRule {
+  name: string;
+  description?: string | null;
+  validator: string;
+  severity: string;
+  params: Record<string, unknown>;
+}
+
+export type RuleSuggestionStatus = "pending" | "approved" | "rejected";
+
+export interface RuleSuggestion {
+  id: string;
+  asset_id: string;
+  status: RuleSuggestionStatus;
+  proposed: ProposedRule;
+  rationale: string;
+  confidence: number;
+  provider: string;
+  model?: string | null;
+  profile_run_id?: string | null;
+  connector_id?: string | null;
+  approved_check_id?: string | null;
+  rejection_reason?: string | null;
+  reviewed_by?: string | null;
+  created_at: string;
+  reviewed_at?: string | null;
+}
+
+export interface ApproveResult {
+  suggestion: RuleSuggestion;
+  check: CheckDefinition;
+}
+
+export interface AiStatus {
+  enabled: boolean;
+  default_provider: string;
+  providers: PluginInfo[];
+}
+
 export interface CheckResult {
   run_id: string;
   check_id: string;

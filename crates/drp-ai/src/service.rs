@@ -2,8 +2,8 @@
 
 use tracing::instrument;
 
-use drp_common::Result;
-use drp_core::{AiRequest, AiResponse, PluginContext, PluginRegistry};
+use drp_common::{AiConfig, Result};
+use drp_core::{AiRequest, AiResponse, PluginContext, PluginInfo, PluginRegistry};
 
 /// Thin façade over [`AiProviderPlugin`](drp_core::AiProviderPlugin) instances.
 #[derive(Clone)]
@@ -13,12 +13,38 @@ pub struct AiService {
 }
 
 impl AiService {
-    /// Create an AI service.
+    /// Create an AI service with default provider `echo`.
     pub fn new(plugins: PluginRegistry) -> Self {
         Self {
             plugins,
             default_provider: "echo".into(),
         }
+    }
+
+    /// Create from platform AI config (default provider from config).
+    pub fn with_config(plugins: PluginRegistry, config: &AiConfig) -> Self {
+        Self {
+            plugins,
+            default_provider: config.default_provider.clone(),
+        }
+    }
+
+    /// Default provider id.
+    pub fn default_provider(&self) -> &str {
+        &self.default_provider
+    }
+
+    /// List registered AI provider plugins.
+    pub fn list_providers(&self) -> Vec<PluginInfo> {
+        self.plugins
+            .list_all()
+            .into_iter()
+            .filter(|p| {
+                p.capabilities
+                    .iter()
+                    .any(|c| matches!(c, drp_core::PluginCapability::AiProvider))
+            })
+            .collect()
     }
 
     /// Complete a request with the given (or default) provider.

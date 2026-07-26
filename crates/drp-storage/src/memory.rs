@@ -6,10 +6,11 @@ use async_trait::async_trait;
 use parking_lot::RwLock;
 
 use crate::traits::Store;
-use drp_common::{AssetId, CheckId, IncidentId, JobId, Result, RunId};
+use drp_common::{AssetId, CheckId, IncidentId, JobId, Result, RunId, SuggestionId};
 use drp_core::{
     AnomalyReport, Asset, CheckDefinition, CheckResult, DatasetProfile, Incident,
-    IncidentTimelineEvent, JobDefinition, JobRun, ValidationRun,
+    IncidentTimelineEvent, JobDefinition, JobRun, RuleSuggestion, RuleSuggestionStatus,
+    ValidationRun,
 };
 
 /// Thread-safe in-memory implementation of [`Store`].
@@ -31,6 +32,8 @@ pub struct MemoryStore {
     jobs: RwLock<HashMap<JobId, JobDefinition>>,
     job_runs: RwLock<HashMap<RunId, JobRun>>,
     job_runs_by_job: RwLock<HashMap<JobId, Vec<RunId>>>,
+    rule_suggestions: RwLock<HashMap<SuggestionId, RuleSuggestion>>,
+    rule_suggestions_order: RwLock<Vec<SuggestionId>>,
 }
 
 impl MemoryStore {
@@ -349,6 +352,43 @@ impl Store for MemoryStore {
             .filter_map(|id| runs_map.get(&id).cloned())
             .collect();
         items.reverse();
+        if let Some(n) = limit {
+            items.truncate(n);
+        }
+        Ok(items)
+    }
+
+    async fn upsert_rule_suggestion(&self, suggestion: RuleSuggestion) -> Result<RuleSuggestion> {
+        let id = suggestion.id;
+        let mut map = self.rule_suggestions.write();
+        let is_new = !map.contains_key(&id);
+        map.insert(id, suggestion.clone());
+        drop(map);
+        if is_new {
+            self.rule_suggestions_order.write().push(id);
+        }
+        Ok(suggestion)
+    }
+
+    async fn get_rule_suggestion(&self, id: &SuggestionId) -> Result<Option<RuleSuggestion>> {
+        Ok(self.rule_suggestions.read().get(id).cloned())
+    }
+
+    async fn list_rule_suggestions(
+        &self,
+        asset_id: Option<&AssetId>,
+        status: Option<RuleSuggestionStatus>,
+        limit: Option<usize>,
+    ) -> Result<Vec<RuleSuggestion>> {
+        let order = self.rule_suggestions_order.read().clone();
+        let map = self.rule_suggestions.read();
+        let mut items: Vec<_> = order
+            .into_iter()
+            .rev()
+            .filter_map(|id| map.get(&id).cloned())
+            .filter(|s| asset_id.map(|a| s.asset_id == *a).unwrap_or(true))
+            .filter(|s| status.map(|st| s.status == st).unwrap_or(true))
+            .collect();
         if let Some(n) = limit {
             items.truncate(n);
         }

@@ -23,11 +23,11 @@ export function formatWhen(iso?: string | null) {
 
 export function statusColor(status: string) {
   const s = status.toLowerCase();
-  if (["passed", "healthy", "resolved", "succeeded"].includes(s))
+  if (["passed", "healthy", "resolved", "succeeded", "approved"].includes(s))
     return "bg-emerald-50 text-emerald-700 ring-emerald-600/15";
-  if (["failed", "error", "critical", "unhealthy"].includes(s))
+  if (["failed", "error", "critical", "unhealthy", "rejected"].includes(s))
     return "bg-rose-50 text-rose-700 ring-rose-600/15";
-  if (["warned", "warning", "open", "degraded", "medium"].includes(s))
+  if (["warned", "warning", "open", "degraded", "medium", "pending"].includes(s))
     return "bg-amber-50 text-amber-800 ring-amber-600/15";
   if (["in_progress", "acknowledged", "monitoring", "running"].includes(s))
     return "bg-sky-50 text-sky-700 ring-sky-600/15";

@@ -73,6 +73,8 @@ typed_id!(/// Identifier for a registered plugin instance.
     PluginId);
 typed_id!(/// Identifier for an anomaly incident.
     IncidentId);
+typed_id!(/// Identifier for an AI-suggested validation rule pending review.
+    SuggestionId);
 
 #[cfg(test)]
 mod tests {
