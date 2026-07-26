@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use drp_ai::register_builtin_ai_providers;
+use drp_ai::{register_builtin_ai_providers, RuleSuggestionService};
 use drp_anomaly::{register_builtin_detectors, AnomalyService};
 use drp_api::{build_app, build_router, AppState};
 use drp_common::{AppConfig, NotificationsConfig};
@@ -85,6 +85,8 @@ pub struct PlatformHarness {
     pub incidents: IncidentService,
     /// Anomaly.
     pub anomaly: AnomalyService,
+    /// AI rule suggestions.
+    pub suggestions: RuleSuggestionService,
 }
 
 impl PlatformHarness {
@@ -137,6 +139,8 @@ impl PlatformHarness {
             Default::default(),
             incidents.clone(),
         );
+        let suggestions =
+            RuleSuggestionService::new(store.clone(), plugins.clone(), Default::default());
 
         Self {
             store,
@@ -150,6 +154,7 @@ impl PlatformHarness {
             notifications,
             incidents,
             anomaly,
+            suggestions,
         }
     }
 }

@@ -109,6 +109,7 @@ Discover data  →  Profile  →  Validate  →  Anomalies
 | Connectors | Talk to Postgres, CSV, Parquet, mock data | [connectors](docs/connectors.md) |
 | Profiling | Stats, types, history | [profiling](docs/profiling.md) |
 | Validation | Quality rules + schedules | [validation](docs/validation.md) |
+| AI suggestions | Propose rules from schema/profile (approve before active) | [ai-rule-suggestions](docs/ai-rule-suggestions.md) |
 | Anomalies | Detect unusual profile changes | [anomaly](docs/anomaly.md) |
 | Lineage | SQL graph + impact | [lineage](docs/lineage.md) |
 | Incidents | Severity, owner, timeline, notifications | [incidents](docs/incidents.md) |

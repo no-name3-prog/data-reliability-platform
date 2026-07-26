@@ -5,10 +5,11 @@ use sqlx::postgres::PgPoolOptions;
 use sqlx::{PgPool, Row};
 use tracing::info;
 
-use drp_common::{AssetId, CheckId, Error, IncidentId, JobId, Result, RunId};
+use drp_common::{AssetId, CheckId, Error, IncidentId, JobId, Result, RunId, SuggestionId};
 use drp_core::{
     AnomalyReport, Asset, CheckDefinition, CheckResult, DatasetProfile, Incident,
-    IncidentTimelineEvent, JobDefinition, JobRun, ValidationRun,
+    IncidentTimelineEvent, JobDefinition, JobRun, RuleSuggestion, RuleSuggestionStatus,
+    ValidationRun,
 };
 
 use crate::traits::Store;
@@ -110,6 +111,16 @@ impl PostgresStore {
             CREATE INDEX IF NOT EXISTS idx_anomaly_reports_asset ON anomaly_reports(asset_id);
             CREATE INDEX IF NOT EXISTS idx_incidents_asset ON incidents(asset_id);
             CREATE INDEX IF NOT EXISTS idx_incident_events_incident ON incident_events(incident_id);
+            CREATE TABLE IF NOT EXISTS rule_suggestions (
+                id TEXT PRIMARY KEY,
+                asset_id TEXT NOT NULL,
+                status TEXT NOT NULL,
+                payload JSONB NOT NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
+            CREATE INDEX IF NOT EXISTS idx_rule_suggestions_asset ON rule_suggestions(asset_id);
+            CREATE INDEX IF NOT EXISTS idx_rule_suggestions_status ON rule_suggestions(status);
             "#,
         )
         .execute(&self.pool)
@@ -780,6 +791,116 @@ impl Store for PostgresStore {
         .bind(lim)
         .fetch_all(&self.pool)
         .await
+        .map_err(|e| Error::storage(e.to_string()))?;
+        rows.into_iter()
+            .map(|r| {
+                serde_json::from_value(
+                    r.try_get("payload")
+                        .map_err(|e| Error::storage(e.to_string()))?,
+                )
+                .map_err(|e| Error::storage(e.to_string()))
+            })
+            .collect()
+    }
+
+    async fn upsert_rule_suggestion(&self, suggestion: RuleSuggestion) -> Result<RuleSuggestion> {
+        let payload = serde_json::to_value(&suggestion)
+            .map_err(|e| Error::storage(format!("serialize rule suggestion: {e}")))?;
+        let status = match suggestion.status {
+            RuleSuggestionStatus::Pending => "pending",
+            RuleSuggestionStatus::Approved => "approved",
+            RuleSuggestionStatus::Rejected => "rejected",
+        };
+        sqlx::query(
+            r#"
+            INSERT INTO rule_suggestions (id, asset_id, status, payload)
+            VALUES ($1, $2, $3, $4)
+            ON CONFLICT (id) DO UPDATE SET
+                asset_id = EXCLUDED.asset_id,
+                status = EXCLUDED.status,
+                payload = EXCLUDED.payload,
+                updated_at = NOW()
+            "#,
+        )
+        .bind(suggestion.id.to_string())
+        .bind(suggestion.asset_id.to_string())
+        .bind(status)
+        .bind(payload)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| Error::storage(e.to_string()))?;
+        Ok(suggestion)
+    }
+
+    async fn get_rule_suggestion(&self, id: &SuggestionId) -> Result<Option<RuleSuggestion>> {
+        let row = sqlx::query("SELECT payload FROM rule_suggestions WHERE id = $1")
+            .bind(id.to_string())
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(|e| Error::storage(e.to_string()))?;
+        match row {
+            Some(r) => {
+                let payload: serde_json::Value = r
+                    .try_get("payload")
+                    .map_err(|e| Error::storage(e.to_string()))?;
+                serde_json::from_value(payload)
+                    .map(Some)
+                    .map_err(|e| Error::storage(format!("deserialize rule suggestion: {e}")))
+            }
+            None => Ok(None),
+        }
+    }
+
+    async fn list_rule_suggestions(
+        &self,
+        asset_id: Option<&AssetId>,
+        status: Option<RuleSuggestionStatus>,
+        limit: Option<usize>,
+    ) -> Result<Vec<RuleSuggestion>> {
+        let lim = limit.unwrap_or(100) as i64;
+        let status_str = status.map(|s| match s {
+            RuleSuggestionStatus::Pending => "pending",
+            RuleSuggestionStatus::Approved => "approved",
+            RuleSuggestionStatus::Rejected => "rejected",
+        });
+        let rows = match (asset_id, status_str) {
+            (Some(aid), Some(st)) => {
+                sqlx::query(
+                    "SELECT payload FROM rule_suggestions WHERE asset_id = $1 AND status = $2 ORDER BY created_at DESC LIMIT $3",
+                )
+                .bind(aid.to_string())
+                .bind(st)
+                .bind(lim)
+                .fetch_all(&self.pool)
+                .await
+            }
+            (Some(aid), None) => {
+                sqlx::query(
+                    "SELECT payload FROM rule_suggestions WHERE asset_id = $1 ORDER BY created_at DESC LIMIT $2",
+                )
+                .bind(aid.to_string())
+                .bind(lim)
+                .fetch_all(&self.pool)
+                .await
+            }
+            (None, Some(st)) => {
+                sqlx::query(
+                    "SELECT payload FROM rule_suggestions WHERE status = $1 ORDER BY created_at DESC LIMIT $2",
+                )
+                .bind(st)
+                .bind(lim)
+                .fetch_all(&self.pool)
+                .await
+            }
+            (None, None) => {
+                sqlx::query(
+                    "SELECT payload FROM rule_suggestions ORDER BY created_at DESC LIMIT $1",
+                )
+                .bind(lim)
+                .fetch_all(&self.pool)
+                .await
+            }
+        }
         .map_err(|e| Error::storage(e.to_string()))?;
         rows.into_iter()
             .map(|r| {

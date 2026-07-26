@@ -1,5 +1,7 @@
 import type {
+  AiStatus,
   AnomalyReport,
+  ApproveResult,
   Asset,
   CheckDefinition,
   CheckResult,
@@ -9,6 +11,7 @@ import type {
   LineageSnapshot,
   ListResponse,
   PluginInfo,
+  RuleSuggestion,
   ValidationRun,
 } from "./types";
 
@@ -161,5 +164,52 @@ export const api = {
   analyzeAnomalies: (assetId: string) =>
     request<AnomalyReport>(`/v1/assets/${assetId}/anomalies/analyze`, {
       method: "POST",
+    }),
+
+  aiStatus: () => request<AiStatus>(`/v1/ai/status`),
+
+  listAiProviders: () =>
+    request<ListResponse<PluginInfo>>(`/v1/ai/providers`),
+
+  suggestRules: (
+    assetId: string,
+    body?: { connector?: string; provider?: string },
+  ) =>
+    request<ListResponse<RuleSuggestion>>(
+      `/v1/assets/${assetId}/ai/suggest-rules`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          connector: body?.connector ?? "mock",
+          provider: body?.provider,
+        }),
+      },
+    ),
+
+  listSuggestions: (opts?: {
+    assetId?: string;
+    status?: string;
+    limit?: number;
+  }) => {
+    const params = new URLSearchParams();
+    if (opts?.assetId) params.set("asset_id", opts.assetId);
+    if (opts?.status) params.set("status", opts.status);
+    if (opts?.limit) params.set("limit", String(opts.limit));
+    const q = params.toString();
+    return request<ListResponse<RuleSuggestion>>(
+      `/v1/ai/suggestions${q ? `?${q}` : ""}`,
+    );
+  },
+
+  approveSuggestion: (id: string, reviewedBy = "dashboard") =>
+    request<ApproveResult>(`/v1/ai/suggestions/${id}/approve`, {
+      method: "POST",
+      body: JSON.stringify({ reviewed_by: reviewedBy }),
+    }),
+
+  rejectSuggestion: (id: string, reason?: string, reviewedBy = "dashboard") =>
+    request<RuleSuggestion>(`/v1/ai/suggestions/${id}/reject`, {
+      method: "POST",
+      body: JSON.stringify({ reason, reviewed_by: reviewedBy }),
     }),
 };

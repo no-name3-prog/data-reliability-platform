@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use drp_ai::AiService;
+use drp_ai::{AiService, RuleSuggestionService};
 use drp_anomaly::AnomalyService;
 use drp_core::Platform;
 use drp_incidents::IncidentService;
@@ -37,6 +37,8 @@ pub struct AppState {
     pub incidents: IncidentService,
     /// Anomaly detection.
     pub anomaly: AnomalyService,
-    /// AI providers.
+    /// AI completions.
     pub ai: AiService,
+    /// AI validation rule suggestions (human-in-the-loop).
+    pub suggestions: RuleSuggestionService,
 }

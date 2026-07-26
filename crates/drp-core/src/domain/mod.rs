@@ -14,7 +14,9 @@ mod job;
 mod lineage;
 mod profile;
 
-pub use ai::{AiMessage, AiRequest, AiResponse, AiRole};
+pub use ai::{
+    AiMessage, AiRequest, AiResponse, AiRole, ProposedRule, RuleSuggestion, RuleSuggestionStatus,
+};
 pub use anomaly::{AnomalyFinding, AnomalyKind, AnomalyReport, AnomalySeverity};
 pub use asset::{Asset, ColumnMeta};
 pub use catalog::{map_sql_type, CatalogDatabase, CatalogSchema, CatalogTable, CatalogTree};

@@ -10,6 +10,9 @@ Failed checks can open **incidents**.
 
 Use the **Validation** page in the dashboard, or the API under `/v1/checks`.
 
+Optional: the **AI layer** can **suggest** rules from schema + profiling + samples.
+Those suggestions stay **pending** until you approve them. See [AI rule suggestions](./ai-rule-suggestions.md).
+
 ---
 
 ## Overview

@@ -75,3 +75,72 @@ async fn integration_failing_connector_surfaces_error() {
         .unwrap_err();
     assert_eq!(err.code(), "connector_error");
 }
+
+#[tokio::test]
+async fn integration_ai_rule_suggestions_require_approval() {
+    use drp_core::RuleSuggestionStatus;
+
+    let h = PlatformHarness::new();
+    let assets = h
+        .metadata
+        .discover_and_register("mock", SourceLocation::new("mock", "mock://local"))
+        .await
+        .expect("discover");
+    let orders = assets.iter().find(|a| a.name == "orders").expect("orders");
+
+    let _profile = h
+        .profiling
+        .profile_asset(&orders.id, "mock", Some("basic"))
+        .await
+        .expect("profile");
+
+    let suggestions = h
+        .suggestions
+        .suggest_for_asset(&orders.id, "mock", Some("heuristic"))
+        .await
+        .expect("suggest");
+    assert!(
+        !suggestions.is_empty(),
+        "expected at least one heuristic suggestion"
+    );
+    assert!(suggestions
+        .iter()
+        .all(|s| s.status == RuleSuggestionStatus::Pending));
+
+    // Pending suggestions must not appear as active checks yet.
+    let checks_before = h.validation.list_checks(Some(&orders.id)).await.unwrap();
+    assert!(checks_before.is_empty());
+
+    let first = &suggestions[0];
+    let approved = h
+        .suggestions
+        .approve(&first.id, Some("test".into()))
+        .await
+        .expect("approve");
+    assert_eq!(approved.suggestion.status, RuleSuggestionStatus::Approved);
+    assert!(approved.suggestion.approved_check_id.is_some());
+    assert_eq!(
+        approved.check.validator,
+        approved.suggestion.proposed.validator
+    );
+    assert!(approved.check.enabled);
+
+    let checks_after = h.validation.list_checks(Some(&orders.id)).await.unwrap();
+    assert_eq!(checks_after.len(), 1);
+
+    // Reject another pending suggestion if present.
+    let pending = h
+        .suggestions
+        .list(Some(&orders.id), Some(RuleSuggestionStatus::Pending), None)
+        .await
+        .unwrap();
+    if let Some(next) = pending.first() {
+        let rejected = h
+            .suggestions
+            .reject(&next.id, Some("nope".into()), Some("test".into()))
+            .await
+            .unwrap();
+        assert_eq!(rejected.status, RuleSuggestionStatus::Rejected);
+        assert!(rejected.approved_check_id.is_none());
+    }
+}

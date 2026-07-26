@@ -48,10 +48,12 @@ drp-core            domain · plugin traits · PluginRegistry · events · Platf
 | `ValidatorPlugin` | `not_null`, `unique`, `regex` |
 | `AnomalyDetectorPlugin` | `null_spike`, `zscore` |
 | `NotificationPlugin` | `log` |
-| `AiProviderPlugin` | `echo` |
+| `AiProviderPlugin` | `heuristic`, `echo`, optional `openai_compatible` |
 | `JobHandler` (scheduler) | `noop` |
 
 New plugins: implement trait → `register` helper → **one line** in `register_all_plugins`.
+
+Optional AI rule suggestions (human-in-the-loop): [ai-rule-suggestions.md](./ai-rule-suggestions.md).
 
 ## Runtime topology (compose)
 

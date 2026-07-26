@@ -36,6 +36,17 @@ impl ApiError {
             },
         }
     }
+
+    /// 400 Bad Request helper.
+    pub fn bad_request(message: impl Into<String>) -> Self {
+        Self {
+            status: StatusCode::BAD_REQUEST,
+            body: ErrorBody {
+                code: "validation_error".into(),
+                message: message.into(),
+            },
+        }
+    }
 }
 
 impl From<PlatformError> for ApiError {

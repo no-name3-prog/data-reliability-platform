@@ -15,7 +15,7 @@ use tower_http::timeout::TimeoutLayer;
 use tower_http::trace::{DefaultOnFailure, DefaultOnResponse, TraceLayer};
 use tracing::{info, Level};
 
-use drp_ai::{register_builtin_ai_providers, AiService};
+use drp_ai::{register_ai_providers_with_config, AiService, RuleSuggestionService};
 use drp_anomaly::{register_builtin_detectors, AnomalyService};
 use drp_common::AppConfig;
 use drp_connectors::register_builtin_connectors;
@@ -48,7 +48,8 @@ fn register_all_plugins(platform: &Platform) {
     register_builtin_validators(reg);
     register_builtin_detectors(reg);
     register_builtin_notifiers(reg, &platform.config.notifications);
-    register_builtin_ai_providers(reg);
+    // AI providers registered in build_app after config is available
+    // (see register_ai_providers_with_config).
 
     // Example external-style plugin (template for contributors)
     drp_plugin_example_connector::register(reg);
@@ -61,10 +62,13 @@ pub async fn build_app(config: AppConfig) -> drp_common::Result<AppState> {
 
     let platform = Platform::new(config);
     register_all_plugins(&platform);
+    register_ai_providers_with_config(&platform.plugins, &platform.config.ai);
 
     info!(
         plugins = platform.plugins.len(),
         env = platform.environment(),
+        ai_enabled = platform.config.ai.enabled,
+        ai_default = %platform.config.ai.default_provider,
         postgres = %platform.config.infra.database_url,
         redis = %platform.config.infra.redis_url,
         s3 = %platform.config.infra.s3_endpoint,
@@ -121,7 +125,9 @@ pub async fn build_app(config: AppConfig) -> drp_common::Result<AppState> {
         platform.config.anomaly.clone(),
         incidents.clone(),
     );
-    let ai = AiService::new(plugins);
+    let ai = AiService::with_config(plugins.clone(), &platform.config.ai);
+    let suggestions =
+        RuleSuggestionService::new(store.clone(), plugins, platform.config.ai.clone());
 
     Ok(AppState {
         platform,
@@ -135,6 +141,7 @@ pub async fn build_app(config: AppConfig) -> drp_common::Result<AppState> {
         incidents,
         anomaly,
         ai,
+        suggestions,
     })
 }
 
